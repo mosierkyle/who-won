@@ -7,6 +7,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+settings = get_settings()
 
 class ProcessScorecardRequest(BaseModel):
     s3_key: str
@@ -37,14 +38,13 @@ async def process_scorecard(request: ProcessScorecardRequest):
             Bucket=settings.s3_bucket_name,
             Key=request.s3_key
         )
-        print(response)
-
+        
         file_content = response['Body'].read()
         file_size = len(file_content)
 
         logger.info(f"Successfully fetched {file_size} bytes")
 
-        return ProcessResponse(
+        return ProcessScorecardResponse(
             message="Successfully fetched scorecard from S3",
             s3_key=request.s3_key,
             size_bytes=file_size,
