@@ -4,6 +4,11 @@ import logging
 
 from app.routers import scorecard
 
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+
 app = FastAPI(
     title="Golf Scorecard Analyzer",
     description="OCR-powered golf scorecard analyzer",
