@@ -5,13 +5,20 @@ from typing import List
 
 from app.services.s3_service import s3_service
 from app.processing import preprocessing_pipeline
-from app.schemas.scorecard import ProcessingStepResponse, ProcessScorecardResponse
+from app.processing import ocr_engine
+from app.processing import image_operations as ops
+from app.schemas.scorecard import (
+    ProcessingStepResponse, 
+    ProcessScorecardResponse,
+    OCRWordResult,
+    OCRStepData
+)
 
 logger = logging.getLogger(__name__)
 
 async def process_scorecard(s3_key: str) -> ProcessScorecardResponse:
     """
-    Process a scorecard through the full pipeline
+    Process a scorecard through the full pipeline including OCR
     
     Args:
         s3_key: S3 key of the scorecard image
@@ -33,7 +40,6 @@ async def process_scorecard(s3_key: str) -> ProcessScorecardResponse:
     logger.info(f"Processing scorecard {scorecard_id} from {s3_key}")
     
     image_bytes, filename = await s3_service.download_file(s3_key)
-    print(filename, scorecard_id)
     
     # Convert original to base64 for display
     original_base64 = f"data:image/jpeg;base64,{base64.b64encode(image_bytes).decode('utf-8')}"
@@ -52,16 +58,17 @@ async def process_scorecard(s3_key: str) -> ProcessScorecardResponse:
     
     # Run preprocessing pipeline
     logger.info("Starting preprocessing pipeline")
-    preprocessing_steps, final_image = preprocessing_pipeline.run_pipeline(
+    preprocessing_steps, final_image_bytes = preprocessing_pipeline.run_pipeline(
         image_bytes, 
         include_base64=True
     )
     
-    # Upload each step to S3 and build response
+    # Upload each preprocessing step to S3
     step_number = 1
+    final_preprocessed_img = None  # Save for OCR
+    
     for step in preprocessing_steps:
         if step.status == "error":
-            # Failed step - add to response and stop
             steps_response.append(ProcessingStepResponse(
                 step_name=step.step_name,
                 status="error",
@@ -72,29 +79,33 @@ async def process_scorecard(s3_key: str) -> ProcessScorecardResponse:
         
         # Determine file extension
         file_extension = 'png' if step.step_name == 'deskewing' else 'jpg'
-        s3_key = f"{processed_folder}{step_number}_{step.step_name}.{file_extension}"
+        s3_key_step = f"{processed_folder}{step_number}_{step.step_name}.{file_extension}"
         
         try:
             await s3_service.upload_file(
                 step.image_bytes,
-                s3_key,
+                s3_key_step,
                 content_type=f"image/{'png' if file_extension == 'png' else 'jpeg'}"
             )
-            completed_s3_paths.append(s3_key)
+            completed_s3_paths.append(s3_key_step)
             
             steps_response.append(ProcessingStepResponse(
                 step_name=step.step_name,
                 status="success",
                 image_base64=step.image_base64,
-                s3_path=s3_key,
+                s3_path=s3_key_step,
                 data=step.data,
                 processing_time_ms=step.processing_time_ms
             ))
             
+            # Save final preprocessed image for OCR
+            if step.step_name == 'deskewing':
+                final_preprocessed_img = ops.bytes_to_image(step.image_bytes)
+            
             step_number += 1
             
         except Exception as e:
-            logger.error(f"Failed to upload {s3_key}: {e}")
+            logger.error(f"Failed to upload {s3_key_step}: {e}")
             steps_response.append(ProcessingStepResponse(
                 step_name=step.step_name,
                 status="error",
@@ -102,6 +113,79 @@ async def process_scorecard(s3_key: str) -> ProcessScorecardResponse:
                 processing_time_ms=step.processing_time_ms
             ))
             break
+    
+    # NEW: Step 6 - OCR
+    if final_preprocessed_img is not None:
+        step_start = time.time()
+        logger.info("Starting OCR")
+        
+        try:
+            # Run OCR
+            ocr_words, full_text = ocr_engine.extract_text_from_image(
+                final_preprocessed_img,
+                confidence_threshold=0.0  # Get everything, filter later
+            )
+            
+            # Draw bounding boxes on image
+            img_with_boxes = ocr_engine.draw_bounding_boxes(
+                final_preprocessed_img,
+                ocr_words,
+                confidence_threshold=70.0
+            )
+            
+            # Convert to base64 and bytes
+            img_with_boxes_bytes = ops.image_to_bytes(img_with_boxes, format='PNG')
+            img_with_boxes_base64 = ops.image_to_base64(img_with_boxes, format='PNG')
+            
+            # Upload visualization to S3
+            s3_key_ocr = f"{processed_folder}6_ocr_visualization.png"
+            await s3_service.upload_file(
+                img_with_boxes_bytes,
+                s3_key_ocr,
+                content_type="image/png"
+            )
+            completed_s3_paths.append(s3_key_ocr)
+            
+            # Calculate statistics
+            confidences = [w.confidence for w in ocr_words]
+            avg_confidence = sum(confidences) / len(confidences) if confidences else 0
+            low_conf_count = len([c for c in confidences if c < 70])
+            
+            # Build OCR data
+            ocr_data = OCRStepData(
+                total_words=len(ocr_words),
+                words=[
+                    OCRWordResult(
+                        text=w.text,
+                        confidence=w.confidence,
+                        bbox=list(w.bbox)
+                    )
+                    for w in ocr_words
+                ],
+                full_text=full_text,
+                avg_confidence=round(avg_confidence, 2),
+                low_confidence_count=low_conf_count
+            )
+            
+            steps_response.append(ProcessingStepResponse(
+                step_name="ocr",
+                status="success",
+                image_base64=img_with_boxes_base64,
+                s3_path=s3_key_ocr,
+                data=ocr_data.model_dump(),
+                processing_time_ms=int((time.time() - step_start) * 1000)
+            ))
+            
+            logger.info(f"OCR complete: {len(ocr_words)} words, avg confidence {avg_confidence:.1f}%")
+            
+        except Exception as e:
+            logger.error(f"OCR failed: {e}")
+            steps_response.append(ProcessingStepResponse(
+                step_name="ocr",
+                status="error",
+                error=str(e),
+                processing_time_ms=int((time.time() - step_start) * 1000)
+            ))
     
     # Determine overall status
     all_successful = all(s.status == "success" for s in steps_response)
@@ -113,8 +197,8 @@ async def process_scorecard(s3_key: str) -> ProcessScorecardResponse:
         scorecard_id=scorecard_id,
         filename=filename,
         status=status,
-        completed_steps=len([s for s in steps_response if s.status == "success"]) - 1,
-        total_steps=5,
+        completed_steps=len([s for s in steps_response if s.status == "success"]) - 1,  # -1 for fetch
+        total_steps=6,
         steps=steps_response,
         s3_paths={
             "raw": s3_key,

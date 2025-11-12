@@ -13,6 +13,18 @@ class ProcessingStepResponse(BaseModel):
     processing_time_ms: int
     error: Optional[str] = None
 
+class OCRWordResult(BaseModel):
+    text: str
+    confidence: float
+    bbox: List[int]  # [x, y, width, height]
+
+class OCRStepData(BaseModel):
+    total_words: int
+    words: List[OCRWordResult]
+    full_text: str
+    avg_confidence: float
+    low_confidence_count: int  # Words below 70%
+
 class ProcessScorecardResponse(BaseModel):
     scorecard_id: str
     filename: str

@@ -7,6 +7,12 @@ const api = axios.create({
   },
 });
 
+export interface OCRWordResult {
+  text: string;
+  confidence: number;
+  bbox: number[];  // [x, y, width, height]
+}
+
 export interface ProcessingStepResponse {
   step_name: string;
   status: string;

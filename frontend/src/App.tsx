@@ -27,7 +27,7 @@ function App() {
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px' }}>
       <h1>Golf Score Helper - OCR Pipeline</h1>
-      <p style={{ color: '#666' }}>Preprocessing visualization</p>
+      <p style={{ color: '#666' }}>Preprocessing + OCR visualization</p>
 
       <div style={{ marginTop: '30px', marginBottom: '30px' }}>
         <label htmlFor="s3key" style={{ fontWeight: 'bold' }}>S3 Key</label>
@@ -139,7 +139,78 @@ function App() {
                   </p>
                 )}
 
-                {step.data && Object.keys(step.data).length > 0 && (
+                {/* OCR-specific data display */}
+                {step.step_name === 'ocr' && step.data && (
+                  <div style={{ 
+                    marginTop: '15px', 
+                    padding: '15px', 
+                    backgroundColor: '#f0f8ff',
+                    borderRadius: '4px',
+                    border: '1px solid #b3d9ff'
+                  }}>
+                    <h5 style={{ margin: '0 0 10px 0' }}>OCR Results:</h5>
+                    <p style={{ margin: '5px 0' }}>
+                      <strong>Words Detected:</strong> {step.data.total_words}
+                    </p>
+                    <p style={{ margin: '5px 0' }}>
+                      <strong>Average Confidence:</strong> {step.data.avg_confidence}%
+                    </p>
+                    <p style={{ margin: '5px 0' }}>
+                      <strong>Low Confidence Words:</strong> {step.data.low_confidence_count} (below 70%)
+                    </p>
+                    
+                    <details style={{ marginTop: '15px' }}>
+                      <summary style={{ cursor: 'pointer', color: '#007bff', fontWeight: 'bold' }}>
+                        View Full Text
+                      </summary>
+                      <pre style={{ 
+                        whiteSpace: 'pre-wrap',
+                        backgroundColor: '#fff',
+                        padding: '10px',
+                        marginTop: '10px',
+                        border: '1px solid #ddd',
+                        borderRadius: '4px'
+                      }}>
+                        {step.data.full_text}
+                      </pre>
+                    </details>
+
+                    <details style={{ marginTop: '10px' }}>
+                      <summary style={{ cursor: 'pointer', color: '#007bff', fontWeight: 'bold' }}>
+                        View All Words (with confidence)
+                      </summary>
+                      <div style={{ 
+                        maxHeight: '300px', 
+                        overflowY: 'auto',
+                        marginTop: '10px',
+                        backgroundColor: '#fff',
+                        padding: '10px',
+                        border: '1px solid #ddd',
+                        borderRadius: '4px'
+                      }}>
+                        {step.data.words.map((word: any, idx: number) => (
+                          <div 
+                            key={idx}
+                            style={{ 
+                              padding: '5px',
+                              marginBottom: '5px',
+                              backgroundColor: word.confidence < 70 ? '#ffe6e6' : '#e6ffe6',
+                              borderRadius: '3px',
+                              fontSize: '12px'
+                            }}
+                          >
+                            <strong>{word.text}</strong> - {word.confidence.toFixed(1)}%
+                            <span style={{ color: '#666', marginLeft: '10px' }}>
+                              @ ({word.bbox[0]}, {word.bbox[1]})
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  </div>
+                )}
+
+                {step.data && step.step_name !== 'ocr' && Object.keys(step.data).length > 0 && (
                   <details style={{ marginTop: '10px' }}>
                     <summary style={{ cursor: 'pointer', color: '#007bff' }}>
                       View metadata
@@ -172,6 +243,16 @@ function App() {
                       display: 'block'
                     }}
                   />
+                  {step.step_name === 'ocr' && (
+                    <p style={{ 
+                      fontSize: '12px', 
+                      color: '#666', 
+                      marginTop: '10px',
+                      fontStyle: 'italic'
+                    }}>
+                      Green boxes = high confidence (≥70%), Red boxes = low confidence (&lt;70%)
+                    </p>
+                  )}
                 </div>
               )}
             </div>
