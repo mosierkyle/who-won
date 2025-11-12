@@ -16,7 +16,6 @@ async def process_scorecard(request: ProcessScorecardRequest):
     """
     Process a scorecard from S3 through the full preprocessing pipeline
     """
-    print("hello")
     try:
         result = await scorecard_service.process_scorecard(request.s3_key)
         return result

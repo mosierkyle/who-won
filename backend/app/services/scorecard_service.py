@@ -6,6 +6,7 @@ from typing import List
 from app.services.s3_service import s3_service
 from app.processing import preprocessing_pipeline
 from app.processing import ocr_engine
+from app.processing import table_detection
 from app.processing import image_operations as ops
 from app.schemas.scorecard import (
     ProcessingStepResponse, 
@@ -114,6 +115,64 @@ async def process_scorecard(s3_key: str) -> ProcessScorecardResponse:
             ))
             break
     
+    # table detection step (temporary)
+    if final_preprocessed_img is not None:
+        step_start = time.time()
+        logger.info("Testing table detection")
+        
+        try:
+            # Detect table structure
+            grid = table_detection.detect_table(final_preprocessed_img)
+            
+            if grid:
+                # Draw detected grid for visualization
+                grid_vis_img = table_detection.draw_detected_grid(final_preprocessed_img, grid)
+                
+                # Convert to base64 and bytes
+                grid_vis_bytes = ops.image_to_bytes(grid_vis_img, format='PNG')
+                grid_vis_base64 = ops.image_to_base64(grid_vis_img, format='PNG')
+                
+                # Upload visualization
+                s3_key_grid = f"{processed_folder}6_table_detection.png"
+                await s3_service.upload_file(
+                    grid_vis_bytes,
+                    s3_key_grid,
+                    content_type="image/png"
+                )
+                completed_s3_paths.append(s3_key_grid)
+                
+                steps_response.append(ProcessingStepResponse(
+                    step_name="table_detection",
+                    status="success",
+                    image_base64=grid_vis_base64,
+                    s3_path=s3_key_grid,
+                    data={
+                        "num_rows": grid.num_rows,
+                        "num_cols": grid.num_cols,
+                        "total_cells": len(grid.cells)
+                    },
+                    processing_time_ms=int((time.time() - step_start) * 1000)
+                ))
+                
+                logger.info(f"Table detected: {grid.num_rows}x{grid.num_cols} = {len(grid.cells)} cells")
+            else:
+                logger.warning("Table detection failed")
+                steps_response.append(ProcessingStepResponse(
+                    step_name="table_detection",
+                    status="error",
+                    error="Could not detect table structure",
+                    processing_time_ms=int((time.time() - step_start) * 1000)
+                ))
+                
+        except Exception as e:
+            logger.error(f"Table detection failed: {e}")
+            steps_response.append(ProcessingStepResponse(
+                step_name="table_detection",
+                status="error",
+                error=str(e),
+                processing_time_ms=int((time.time() - step_start) * 1000)
+            ))
+
     # NEW: Step 6 - OCR
     if final_preprocessed_img is not None:
         step_start = time.time()
