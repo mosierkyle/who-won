@@ -2,7 +2,7 @@ import boto3
 from botocore.exceptions import ClientError
 import logging
 import uuid
-from typing import Tuple
+from typing import Tuple, BinaryIO
 
 from app.config import get_settings
 
@@ -72,6 +72,56 @@ class S3Service:
             return s3_key
         except ClientError as e:
             logger.error(f"Error uploading to S3: {e}")
+            raise
+    
+    async def upload_file_obj(
+        self,
+        file_obj: BinaryIO,
+        s3_key: str,
+        content_type: str = "image/png"
+    ) -> str:
+        """
+        Upload file object to S3
+        Returns: S3 key
+        """
+        try:
+            logger.info(f"Uploading file object to {s3_key}")
+            self.s3_client.put_object(
+                Bucket=self.bucket_name,
+                Key=s3_key,
+                Body=file_obj,
+                ContentType=content_type
+            )
+            logger.info(f"Upload successful: {s3_key}")
+            return s3_key
+        except ClientError as e:
+            logger.error(f"Error uploading to S3: {e}")
+            raise
+    
+    def generate_presigned_url(self, s3_key: str, expiration: int = 3600) -> str:
+        """
+        Generate a presigned URL for an S3 object
+        
+        Args:
+            s3_key: S3 key of the object
+            expiration: Time in seconds for the presigned URL to remain valid (default 1 hour)
+        
+        Returns:
+            Presigned URL as string
+        """
+        try:
+            url = self.s3_client.generate_presigned_url(
+                'get_object',
+                Params={
+                    'Bucket': self.bucket_name,
+                    'Key': s3_key
+                },
+                ExpiresIn=expiration
+            )
+            logger.info(f"Generated presigned URL for {s3_key} (expires in {expiration}s)")
+            return url
+        except ClientError as e:
+            logger.error(f"Error generating presigned URL for {s3_key}: {e}")
             raise
 
 s3_service = S3Service()

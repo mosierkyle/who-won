@@ -60,8 +60,23 @@ def run_pipeline(
             data=data,
             processing_time_ms=int((time.time() - start) * 1000)
         ))
+
+        # Step 2: auto rotate image
+        start = time.time()
+        img, data = ops.auto_rotate(img)
+        img_bytes = ops.image_to_bytes(img)
+        img_base64 = ops.image_to_base64(img) if include_base64 else None
         
-        # Step 2: Contrast enhancement
+        steps.append(PreprocessingStep(
+            step_name="auto_rotation",
+            status="success",
+            image_bytes=img_bytes,
+            image_base64=img_base64,
+            data=data,
+            processing_time_ms=int((time.time() - start) * 1000)
+        ))
+        
+        # Step 3: Contrast enhancement
         start = time.time()
         img, data = ops.enhance_contrast(img)
         img_bytes = ops.image_to_bytes(img)
@@ -76,7 +91,7 @@ def run_pipeline(
             processing_time_ms=int((time.time() - start) * 1000)
         ))
         
-        # Step 3: Denoising
+        # Step 4: Denoising
         start = time.time()
         img, data = ops.denoise(img)
         img_bytes = ops.image_to_bytes(img)
@@ -91,7 +106,7 @@ def run_pipeline(
             processing_time_ms=int((time.time() - start) * 1000)
         ))
         
-        # Step 4: Binarization
+        # Step 5: Binarization
         start = time.time()
         img, data = ops.binarize(img)
         img_bytes = ops.image_to_bytes(img)
@@ -106,9 +121,9 @@ def run_pipeline(
             processing_time_ms=int((time.time() - start) * 1000)
         ))
         
-        # Step 5: Deskewing (save as PNG for final OCR input)
+        # Step 6: Deskewing (save as PNG for final OCR input)
         start = time.time()
-        img, data = ops.deskew(img)
+        # img, data = ops.deskew(img)
         img_bytes = ops.image_to_bytes(img, format='PNG')
         img_base64 = ops.image_to_base64(img, format='PNG') if include_base64 else None
         

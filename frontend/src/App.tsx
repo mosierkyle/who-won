@@ -7,6 +7,9 @@ function App() {
   const [result, setResult] = useState<ProcessScorecardResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  // TODO: Replace with your actual S3 bucket name or use env variable
+  const S3_BUCKET_URL = 'https://who-won-development.s3.amazonaws.com'
+
   const handleProcess = async () => {
     setLoading(true)
     setError(null)
@@ -139,7 +142,129 @@ function App() {
                   </p>
                 )}
 
-                {/* OCR-specific data display */}
+                {/* Scorecard extraction results */}
+                {step.step_name === 'scorecard_extraction' && step.data && (
+                  <div style={{ 
+                    marginTop: '15px', 
+                    padding: '15px', 
+                    backgroundColor: '#f0f8ff',
+                    borderRadius: '4px',
+                    border: '1px solid #b3d9ff'
+                  }}>
+                    <h5 style={{ margin: '0 0 10px 0' }}>Scorecard Extraction Results:</h5>
+                    <p style={{ margin: '5px 0' }}>
+                      <strong>Players Found:</strong> {step.data.total_players}
+                    </p>
+                    <p style={{ margin: '5px 0' }}>
+                      <strong>Grid Size:</strong> {step.data.grid_size}
+                    </p>
+                    
+                    {/* Player data */}
+                    <details style={{ marginTop: '15px' }}>
+                      <summary style={{ cursor: 'pointer', color: '#007bff', fontWeight: 'bold' }}>
+                        View Player Data
+                      </summary>
+                      <div style={{ 
+                        marginTop: '10px',
+                        backgroundColor: '#fff',
+                        padding: '10px',
+                        border: '1px solid #ddd',
+                        borderRadius: '4px',
+                        maxHeight: '400px',
+                        overflowY: 'auto'
+                      }}>
+                        {step.data.players.map((player: any, idx: number) => (
+                          <div key={idx} style={{ marginBottom: '15px', paddingBottom: '15px', borderBottom: '1px solid #eee' }}>
+                            <h6 style={{ margin: '0 0 8px 0' }}>
+                              Player {idx + 1}: {player.name} (Row {player.row})
+                            </h6>
+                            <div style={{ 
+                              display: 'grid', 
+                              gridTemplateColumns: 'repeat(auto-fill, minmax(40px, 1fr))',
+                              gap: '5px',
+                              fontSize: '12px'
+                            }}>
+                              {player.all_values.map((val: string | null, colIdx: number) => (
+                                <div 
+                                  key={colIdx}
+                                  style={{
+                                    padding: '4px',
+                                    textAlign: 'center',
+                                    backgroundColor: val ? '#d4edda' : '#f8f9fa',
+                                    border: '1px solid #ddd',
+                                    borderRadius: '3px',
+                                    fontFamily: 'monospace'
+                                  }}
+                                  title={`Col ${colIdx}`}
+                                >
+                                  {val || '—'}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+
+                      {/* Debug cell images - now using presigned URLs directly */}
+                      {step.data.debug_images && step.data.debug_images.length > 0 && (
+                        <details style={{ marginTop: '15px' }}>
+                          <summary style={{ cursor: 'pointer', color: '#007bff', fontWeight: 'bold' }}>
+                            🔍 View Debug Cell Images ({step.data.debug_images.length} images)
+                          </summary>
+                          <div style={{ 
+                            marginTop: '10px',
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+                            gap: '15px',
+                            maxHeight: '600px',
+                            overflowY: 'auto',
+                            padding: '10px',
+                            backgroundColor: '#fafafa',
+                            borderRadius: '4px'
+                          }}>
+                            {step.data.debug_images.map((url: string, idx: number) => {
+                              // Extract filename from URL for display
+                              const filename = url.split('/').pop()?.split('?')[0] || `image-${idx}`;
+                              return (
+                                <div key={idx} style={{ 
+                                  textAlign: 'center',
+                                  padding: '10px',
+                                  backgroundColor: '#fff',
+                                  borderRadius: '4px',
+                                  border: '1px solid #ddd'
+                                }}>
+                                  <img
+                                    src={url}
+                                    alt={filename}
+                                    style={{
+                                      width: '100%',
+                                      border: '2px solid #007bff',
+                                      borderRadius: '4px',
+                                      imageRendering: 'pixelated',
+                                      minHeight: '60px',
+                                      backgroundColor: '#f0f0f0'
+                                    }}
+                                  />
+                                  <div style={{ 
+                                    fontSize: '10px', 
+                                    color: '#666', 
+                                    marginTop: '8px',
+                                    wordBreak: 'break-all',
+                                    fontFamily: 'monospace'
+                                  }}>
+                                    {filename}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </details>
+                      )}
+                  </div>
+                )}
+
+                {/* OCR-specific data display (legacy - keeping for compatibility) */}
                 {step.step_name === 'ocr' && step.data && (
                   <div style={{ 
                     marginTop: '15px', 
@@ -210,7 +335,7 @@ function App() {
                   </div>
                 )}
 
-                {step.data && step.step_name !== 'ocr' && Object.keys(step.data).length > 0 && (
+                {step.data && step.step_name !== 'ocr' && step.step_name !== 'scorecard_extraction' && Object.keys(step.data).length > 0 && (
                   <details style={{ marginTop: '10px' }}>
                     <summary style={{ cursor: 'pointer', color: '#007bff' }}>
                       View metadata
@@ -243,6 +368,16 @@ function App() {
                       display: 'block'
                     }}
                   />
+                  {step.step_name === 'scorecard_extraction' && (
+                    <p style={{ 
+                      fontSize: '12px', 
+                      color: '#666', 
+                      marginTop: '10px',
+                      fontStyle: 'italic'
+                    }}>
+                      Green boxes = OCR found value, Red boxes = OCR returned nothing, Cell dimensions shown in gray
+                    </p>
+                  )}
                   {step.step_name === 'ocr' && (
                     <p style={{ 
                       fontSize: '12px', 

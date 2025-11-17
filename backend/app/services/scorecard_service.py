@@ -1,6 +1,8 @@
 import logging
 import time
 import base64
+import glob
+import os
 from typing import List
 
 from app.services.s3_service import s3_service
@@ -16,6 +18,48 @@ from app.schemas.scorecard import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+async def upload_debug_images(scorecard_id: str, processed_folder: str) -> List[str]:
+    """
+    Upload debug cell images from /tmp to S3 and return presigned URLs
+    
+    Returns:
+        List of presigned URLs for debug images
+    """
+    debug_files = glob.glob("/tmp/debug_*.png")
+    logger.info(f"Found {len(debug_files)} debug images to upload")
+    
+    presigned_urls = []
+    
+    for debug_file in sorted(debug_files):  # Sort for consistent ordering
+        try:
+            filename = os.path.basename(debug_file)
+            s3_key = f"{processed_folder}debug/{filename}"
+            
+            # Upload to S3
+            with open(debug_file, 'rb') as f:
+                file_bytes = f.read()
+                await s3_service.upload_file(
+                    file_bytes,
+                    s3_key,
+                    content_type="image/png"
+                )
+            
+            # Generate presigned URL (valid for 1 hour)
+            presigned_url = s3_service.generate_presigned_url(s3_key, expiration=3600)
+            presigned_urls.append(presigned_url)
+            
+            logger.info(f"Uploaded debug image: {s3_key}")
+            
+            # Clean up local file
+            os.remove(debug_file)
+            
+        except Exception as e:
+            logger.warning(f"Failed to upload debug image {debug_file}: {e}")
+    
+    return presigned_urls
+
 
 async def process_scorecard(s3_key: str) -> ProcessScorecardResponse:
     """
@@ -115,7 +159,8 @@ async def process_scorecard(s3_key: str) -> ProcessScorecardResponse:
             ))
             break
     
-    # table detection step (temporary)
+    # Step 6: Table detection
+    grid = None  # Initialize grid variable
     if final_preprocessed_img is not None:
         step_start = time.time()
         logger.info("Testing table detection")
@@ -173,78 +218,70 @@ async def process_scorecard(s3_key: str) -> ProcessScorecardResponse:
                 processing_time_ms=int((time.time() - step_start) * 1000)
             ))
 
-    # NEW: Step 6 - OCR
-    if final_preprocessed_img is not None:
+    # Step 7: Scorecard extraction (two-pass OCR)
+    if final_preprocessed_img is not None and grid is not None:
         step_start = time.time()
-        logger.info("Starting OCR")
+        logger.info("Starting two-pass OCR extraction")
         
         try:
-            # Run OCR
-            ocr_words, full_text = ocr_engine.extract_text_from_image(
+            # Run two-pass OCR
+            scorecard_data = ocr_engine.extract_scorecard_data(
                 final_preprocessed_img,
-                confidence_threshold=0.0  # Get everything, filter later
+                grid.cells
             )
             
-            # Draw bounding boxes on image
-            img_with_boxes = ocr_engine.draw_bounding_boxes(
+            # Upload debug images and get presigned URLs
+            debug_urls = await upload_debug_images(scorecard_id, processed_folder)
+            logger.info(f"Generated {len(debug_urls)} presigned URLs for debug images")
+            
+            # Create visualization
+            vis_img = ocr_engine.draw_scorecard_results(
                 final_preprocessed_img,
-                ocr_words,
-                confidence_threshold=70.0
+                grid.cells,
+                scorecard_data
             )
             
             # Convert to base64 and bytes
-            img_with_boxes_bytes = ops.image_to_bytes(img_with_boxes, format='PNG')
-            img_with_boxes_base64 = ops.image_to_base64(img_with_boxes, format='PNG')
+            img_bytes = ops.image_to_bytes(vis_img, format='PNG')
+            img_base64 = ops.image_to_base64(vis_img, format='PNG')
             
-            # Upload visualization to S3
-            s3_key_ocr = f"{processed_folder}6_ocr_visualization.png"
+            # Upload visualization
+            s3_key_ocr = f"{processed_folder}7_scorecard_extraction.png"
             await s3_service.upload_file(
-                img_with_boxes_bytes,
+                img_bytes,
                 s3_key_ocr,
                 content_type="image/png"
             )
             completed_s3_paths.append(s3_key_ocr)
             
-            # Calculate statistics
-            confidences = [w.confidence for w in ocr_words]
-            avg_confidence = sum(confidences) / len(confidences) if confidences else 0
-            low_conf_count = len([c for c in confidences if c < 70])
-            
-            # Build OCR data
-            ocr_data = OCRStepData(
-                total_words=len(ocr_words),
-                words=[
-                    OCRWordResult(
-                        text=w.text,
-                        confidence=w.confidence,
-                        bbox=list(w.bbox)
-                    )
-                    for w in ocr_words
-                ],
-                full_text=full_text,
-                avg_confidence=round(avg_confidence, 2),
-                low_confidence_count=low_conf_count
-            )
+            # Build response data with presigned URLs
+            ocr_data = {
+                "total_players": scorecard_data['total_players'],
+                "players": scorecard_data['players'],
+                "grid_size": f"{grid.num_rows}x{grid.num_cols}",
+                "debug_images": debug_urls  # Presigned URLs instead of S3 keys
+            }
             
             steps_response.append(ProcessingStepResponse(
-                step_name="ocr",
+                step_name="scorecard_extraction",
                 status="success",
-                image_base64=img_with_boxes_base64,
+                image_base64=img_base64,
                 s3_path=s3_key_ocr,
-                data=ocr_data.model_dump(),
+                data=ocr_data,
                 processing_time_ms=int((time.time() - step_start) * 1000)
             ))
             
-            logger.info(f"OCR complete: {len(ocr_words)} words, avg confidence {avg_confidence:.1f}%")
+            logger.info(f"Scorecard extraction complete: {scorecard_data['total_players']} players found")
             
         except Exception as e:
-            logger.error(f"OCR failed: {e}")
+            logger.error(f"Scorecard extraction failed: {e}")
             steps_response.append(ProcessingStepResponse(
-                step_name="ocr",
+                step_name="scorecard_extraction",
                 status="error",
                 error=str(e),
                 processing_time_ms=int((time.time() - step_start) * 1000)
             ))
+
     
     # Determine overall status
     all_successful = all(s.status == "success" for s in steps_response)
@@ -257,7 +294,7 @@ async def process_scorecard(s3_key: str) -> ProcessScorecardResponse:
         filename=filename,
         status=status,
         completed_steps=len([s for s in steps_response if s.status == "success"]) - 1,  # -1 for fetch
-        total_steps=6,
+        total_steps=8,
         steps=steps_response,
         s3_paths={
             "raw": s3_key,
