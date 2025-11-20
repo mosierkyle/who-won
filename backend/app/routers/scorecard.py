@@ -1,67 +1,117 @@
-from fastapi import APIRouter, HTTPException
-from app.config import get_settings
+from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi.responses import StreamingResponse
 import logging
+import time
+import io
 
-from app.schemas.scorecard import ProcessScorecardRequest, ProcessScorecardResponse, ProcessScorecardClaudeRequest, ProcessScorecardClaudeResponse
-from app.services import scorecard_service
+from app.schemas.scorecard import ProcessScorecardResponse, ScorecardData, Player, ExportRequest
 from app.services.s3_service import s3_service
-from app.services.claude_ocr_service import get_claude_service
-
-
+from app.services.claude_service import get_claude_service
+from app.services.game_modes import process_players
+from app.services.export_service import export_to_csv
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-settings = get_settings()
 
-
-@router.post("/process-scorecard", response_model=ProcessScorecardResponse)
-async def process_scorecard(request: ProcessScorecardRequest):
+@router.post("/upload-and-process", response_model=ProcessScorecardResponse)
+async def upload_and_process_scorecard(file: UploadFile = File(...)):
     """
-    Process a scorecard from S3 through the full preprocessing pipeline
+    Upload scorecard image and process it with Claude API
+    
+    Flow:
+    1. Receive image from frontend
+    2. Upload to S3
+    3. Send to Claude for data extraction
+    4. Calculate totals and winner
+    5. Return structured data
     """
     try:
-        result = await scorecard_service.process_scorecard(request.s3_key)
-        return result
-    except Exception as e:
-        logger.error(f"Error processing scorecard: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/process-scorecard-claude", response_model=ProcessScorecardClaudeResponse)
-async def process_scorecard_claude_endpoint(request: ProcessScorecardClaudeRequest):
-    """Process scorecard using Claude Vision API"""
-    try:
-        import time
         start_time = time.time()
+        
+        # Validate file type
+        if not file.content_type.startswith('image/'):
+            raise HTTPException(status_code=400, detail="File must be an image")
         
         # Generate scorecard ID
         scorecard_id = s3_service.generate_scorecard_id()
+        logger.info(f"Processing scorecard {scorecard_id}")
         
-        # Download image from S3
-        logger.info(f"Processing scorecard {scorecard_id} with Claude API")
-        image_bytes, filename = await s3_service.download_file(request.s3_key)
+        # Read file bytes
+        file_bytes = await file.read()
+        
+        # Upload to S3
+        s3_key = f"uploads/{scorecard_id}/{file.filename}"
+        await s3_service.upload_file(file_bytes, s3_key, file.content_type)
+        logger.info(f"Uploaded to S3: {s3_key}")
         
         # Extract data using Claude
         claude = get_claude_service()
-        result = await claude.extract_scorecard_data(image_bytes)
+        raw_data = await claude.extract_scorecard_data(file_bytes)
+        
+        # Convert to Pydantic models
+        players = [Player(**p) for p in raw_data.get('players', [])]
+        
+        # Calculate totals and winner
+        players_with_totals, winner = process_players(players)
+        
+        # Build scorecard data
+        scorecard_data = ScorecardData(
+            course=raw_data.get('course'),
+            date=raw_data.get('date'),
+            par=raw_data.get('par'),
+            players=players_with_totals
+        )
         
         # Calculate processing time
         processing_time = int((time.time() - start_time) * 1000)
         
-        # Build response
-        return ProcessScorecardClaudeResponse(
+        logger.info(f"Processed scorecard {scorecard_id} in {processing_time}ms")
+        
+        return ProcessScorecardResponse(
             scorecard_id=scorecard_id,
-            filename=filename,
-            players=result.get('players', []),
-            winner=result.get('winner'),
-            course=result.get('course'),
-            date=result.get('date'),
+            data=scorecard_data,
+            winner=winner,
             processing_time_ms=processing_time
         )
         
     except ValueError as e:
         logger.error(f"Configuration error: {e}")
-        raise HTTPException(status_code=500, detail="Claude API not configured. Please set ANTHROPIC_API_KEY environment variable.")
+        raise HTTPException(
+            status_code=500, 
+            detail="Claude API not configured. Please set ANTHROPIC_API_KEY environment variable."
+        )
     except Exception as e:
-        logger.error(f"Error processing scorecard with Claude: {e}", exc_info=True)
+        logger.error(f"Error processing scorecard: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/export")
+async def export_scorecard(request: ExportRequest):
+    """
+    Export scorecard data to CSV or Excel
+    
+    Args:
+        request: Scorecard data and format (csv or excel)
+        
+    Returns:
+        File download
+    """
+    try:
+        if request.format == "csv":
+            csv_bytes = export_to_csv(request.data)
+            
+            return StreamingResponse(
+                io.BytesIO(csv_bytes),
+                media_type="text/csv",
+                headers={"Content-Disposition": "attachment; filename=scorecard.csv"}
+            )
+        
+        elif request.format == "excel":
+            # TODO: Implement Excel export in Phase 1.5
+            raise HTTPException(status_code=501, detail="Excel export not yet implemented")
+        
+        else:
+            raise HTTPException(status_code=400, detail="Invalid format. Use 'csv' or 'excel'")
+            
+    except Exception as e:
+        logger.error(f"Error exporting scorecard: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

@@ -1,49 +1,36 @@
-from pydantic import BaseModel
-from typing import Optional, List
+from pydantic import BaseModel, Field
+from typing import List, Optional
 
-class ProcessScorecardRequest(BaseModel):
-    s3_key: str
+# Request/Response Models
 
-class ProcessingStepResponse(BaseModel):
-    step_name: str
-    status: str
-    image_base64: Optional[str] = None
-    s3_path: Optional[str] = None
-    data: Optional[dict] = None
-    processing_time_ms: int
-    error: Optional[str] = None
+class UploadAndProcessRequest(BaseModel):
+    """Request model for uploading image via backend (not needed for multipart, but good for docs)"""
+    pass
 
-class OCRWordResult(BaseModel):
-    text: str
-    confidence: float
-    bbox: List[int]  # [x, y, width, height]
+class Player(BaseModel):
+    """Player data with scores"""
+    name: str
+    scores: List[Optional[int]] = Field(..., min_length=18, max_length=18)
+    handicap: Optional[int] = None
+    total: Optional[int] = None  # Calculated on backend
+    front_nine_total: Optional[int] = None  # NEW: Holes 1-9 total
+    back_nine_total: Optional[int] = None   # NEW: Holes 10-18 total
 
-class OCRStepData(BaseModel):
-    total_words: int
-    words: List[OCRWordResult]
-    full_text: str
-    avg_confidence: float
-    low_confidence_count: int  # Words below 70%
+class ScorecardData(BaseModel):
+    """Complete scorecard data"""
+    course: Optional[str] = None
+    date: Optional[str] = None
+    par: Optional[List[Optional[int]]] = Field(None, min_length=18, max_length=18)
+    players: List[Player]
 
 class ProcessScorecardResponse(BaseModel):
+    """Response after processing scorecard"""
     scorecard_id: str
-    filename: str
-    status: str
-    completed_steps: int
-    total_steps: int
-    steps: List[ProcessingStepResponse]
-    s3_paths: dict
-    total_processing_time_ms: int
-
-class ProcessScorecardClaudeRequest(BaseModel):
-    s3_key: str
-
-class ProcessScorecardClaudeResponse(BaseModel):
-    scorecard_id: str
-    filename: str
-    method: str = "claude_api"
-    players: list
-    winner: str = None
-    course: str = None
-    date: str = None
+    data: ScorecardData
+    winner: Optional[str] = None  # For stroke play
     processing_time_ms: int
+
+class ExportRequest(BaseModel):
+    """Request to export scorecard data"""
+    data: ScorecardData
+    format: str = Field(..., pattern="^(csv|excel)$")  # Only csv or excel

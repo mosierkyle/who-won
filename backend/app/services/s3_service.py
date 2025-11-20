@@ -61,14 +61,12 @@ class S3Service:
         Returns: S3 key
         """
         try:
-            # logger.info(f"Uploading to {s3_key}")
             self.s3_client.put_object(
                 Bucket=self.bucket_name,
                 Key=s3_key,
                 Body=file_bytes,
                 ContentType=content_type
             )
-            # logger.info(f"Upload successful: {s3_key}")
             return s3_key
         except ClientError as e:
             logger.error(f"Error uploading to S3: {e}")
@@ -85,14 +83,12 @@ class S3Service:
         Returns: S3 key
         """
         try:
-            # logger.info(f"Uploading file object to {s3_key}")
             self.s3_client.put_object(
                 Bucket=self.bucket_name,
                 Key=s3_key,
                 Body=file_obj,
                 ContentType=content_type
             )
-            # logger.info(f"Upload successful: {s3_key}")
             return s3_key
         except ClientError as e:
             logger.error(f"Error uploading to S3: {e}")
@@ -118,7 +114,6 @@ class S3Service:
                 },
                 ExpiresIn=expiration
             )
-            # logger.info(f"Generated presigned URL for {s3_key} (expires in {expiration}s)")
             return url
         except ClientError as e:
             logger.error(f"Error generating presigned URL for {s3_key}: {e}")
