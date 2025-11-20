@@ -1,23 +1,36 @@
 import { useState } from 'react'
-import { processScorecard, type ProcessScorecardResponse } from './api/processScorecard'
+import { 
+  processScorecard, 
+  processScorecardClaude,
+  type ProcessScorecardResponse,
+  type ProcessScorecardClaudeResponse 
+} from './api/processScorecard'
+
+type ProcessingMethod = 'ocr' | 'claude';
 
 function App() {
   const [s3Key, setS3Key] = useState('Raw/ex_scorecard_1.png')
   const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState<ProcessScorecardResponse | null>(null)
+  const [method, setMethod] = useState<ProcessingMethod>('ocr')
+  const [ocrResult, setOcrResult] = useState<ProcessScorecardResponse | null>(null)
+  const [claudeResult, setClaudeResult] = useState<ProcessScorecardClaudeResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  // TODO: Replace with your actual S3 bucket name or use env variable
-  const S3_BUCKET_URL = 'https://who-won-development.s3.amazonaws.com'
-
-  const handleProcess = async () => {
+  const handleProcess = async (selectedMethod: ProcessingMethod) => {
     setLoading(true)
     setError(null)
-    setResult(null)
+    setOcrResult(null)
+    setClaudeResult(null)
+    setMethod(selectedMethod)
 
     try {
-      const data = await processScorecard(s3Key)
-      setResult(data)
+      if (selectedMethod === 'ocr') {
+        const data = await processScorecard(s3Key)
+        setOcrResult(data)
+      } else {
+        const data = await processScorecardClaude(s3Key)
+        setClaudeResult(data)
+      }
     } catch (err: any) {
       const errorMsg = err.response?.data?.detail || err.message
       setError(errorMsg)
@@ -29,8 +42,8 @@ function App() {
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px' }}>
-      <h1>Golf Score Helper - OCR Pipeline</h1>
-      <p style={{ color: '#666' }}>Preprocessing + OCR visualization</p>
+      <h1>Golf Score Helper</h1>
+      <p style={{ color: '#666' }}>Choose your processing method</p>
 
       <div style={{ marginTop: '30px', marginBottom: '30px' }}>
         <label htmlFor="s3key" style={{ fontWeight: 'bold' }}>S3 Key</label>
@@ -52,23 +65,49 @@ function App() {
             fontSize: '14px'
           }}
         />
-        <button
-          onClick={handleProcess}
-          disabled={loading}
-          style={{
-            width: '100%',
-            padding: '12px',
-            backgroundColor: loading ? '#888' : '#007bff',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: loading ? 'default' : 'pointer',
-            fontSize: '16px',
-            fontWeight: 'bold'
-          }}
-        >
-          {loading ? 'Processing...' : 'Process Scorecard'}
-        </button>
+        
+        {/* Method selection buttons */}
+        <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
+          <button
+            onClick={() => handleProcess('ocr')}
+            disabled={loading}
+            style={{
+              flex: 1,
+              padding: '12px',
+              backgroundColor: loading && method === 'ocr' ? '#888' : '#007bff',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: loading ? 'default' : 'pointer',
+              fontSize: '16px',
+              fontWeight: 'bold'
+            }}
+          >
+            {loading && method === 'ocr' ? 'Processing...' : '🔧 Process with OCR'}
+          </button>
+          
+          <button
+            onClick={() => handleProcess('claude')}
+            disabled={loading}
+            style={{
+              flex: 1,
+              padding: '12px',
+              backgroundColor: loading && method === 'claude' ? '#888' : '#8b5cf6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: loading ? 'default' : 'pointer',
+              fontSize: '16px',
+              fontWeight: 'bold'
+            }}
+          >
+            {loading && method === 'claude' ? 'Processing...' : '🤖 Process with Claude AI'}
+          </button>
+        </div>
+        
+        <p style={{ fontSize: '12px', color: '#666', fontStyle: 'italic' }}>
+          OCR: Free, detailed debugging • Claude AI: Fast, accurate, ~$0.015 per image
+        </p>
       </div>
 
       {error && (
@@ -86,34 +125,150 @@ function App() {
         </div>
       )}
 
-      {result && (
+      {/* Claude Results */}
+      {claudeResult && (
         <div style={{ marginTop: '30px' }}>
           <div style={{ 
             padding: '15px', 
-            backgroundColor: result.status === 'success' ? '#d4edda' : '#fff3cd',
-            border: `1px solid ${result.status === 'success' ? '#c3e6cb' : '#ffeaa7'}`,
+            backgroundColor: '#f0f9ff',
+            border: '1px solid #bae6fd',
+            borderRadius: '4px',
+            marginBottom: '20px'
+          }}>
+            <h3 style={{ margin: '0 0 10px 0', color: '#0369a1' }}>
+              🤖 Claude AI Results
+            </h3>
+            <p style={{ margin: '5px 0' }}>
+              <strong>Scorecard ID:</strong> {claudeResult.scorecard_id}
+            </p>
+            <p style={{ margin: '5px 0' }}>
+              <strong>Filename:</strong> {claudeResult.filename}
+            </p>
+            <p style={{ margin: '5px 0' }}>
+              <strong>Processing Time:</strong> {claudeResult.processing_time_ms}ms
+            </p>
+            {claudeResult.winner && (
+              <p style={{ margin: '5px 0' }}>
+                <strong>🏆 Winner:</strong> {claudeResult.winner}
+              </p>
+            )}
+            {claudeResult.course && (
+              <p style={{ margin: '5px 0' }}>
+                <strong>Course:</strong> {claudeResult.course}
+              </p>
+            )}
+            {claudeResult.date && (
+              <p style={{ margin: '5px 0' }}>
+                <strong>Date:</strong> {claudeResult.date}
+              </p>
+            )}
+          </div>
+
+          <h3>Players & Scores:</h3>
+          {claudeResult.players.map((player, idx) => (
+            <div
+              key={idx}
+              style={{
+                marginBottom: '20px',
+                padding: '20px',
+                border: player.name === claudeResult.winner ? '3px solid #fbbf24' : '1px solid #ddd',
+                borderRadius: '4px',
+                backgroundColor: player.name === claudeResult.winner ? '#fffbeb' : '#fff',
+              }}
+            >
+              <h4 style={{ margin: '0 0 15px 0' }}>
+                {player.name === claudeResult.winner && '🏆 '}
+                {player.name} - Total: {player.total}
+              </h4>
+              
+              {/* Front 9 */}
+              <div style={{ marginBottom: '5px', fontSize: '12px', fontWeight: 'bold', color: '#666' }}>
+                Front 9
+              </div>
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(9, 1fr)',
+                gap: '8px',
+                marginBottom: '20px'
+              }}>
+                {player.scores.slice(0, 9).map((score, holeIdx) => (
+                  <div 
+                    key={holeIdx}
+                    style={{
+                      padding: '8px',
+                      textAlign: 'center',
+                      backgroundColor: score === null ? '#f3f4f6' : '#dbeafe',
+                      border: '1px solid #93c5fd',
+                      borderRadius: '4px',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    <div style={{ fontSize: '10px', color: '#666' }}>H{holeIdx + 1}</div>
+                    <div>{score ?? '—'}</div>
+                  </div>
+                ))}
+              </div>
+              
+              {/* Back 9 */}
+              <div style={{ marginBottom: '5px', fontSize: '12px', fontWeight: 'bold', color: '#666' }}>
+                Back 9
+              </div>
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(9, 1fr)',
+                gap: '8px'
+              }}>
+                {player.scores.slice(9, 18).map((score, holeIdx) => (
+                  <div 
+                    key={holeIdx + 9}
+                    style={{
+                      padding: '8px',
+                      textAlign: 'center',
+                      backgroundColor: score === null ? '#f3f4f6' : '#dcfce7',
+                      border: '1px solid #86efac',
+                      borderRadius: '4px',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    <div style={{ fontSize: '10px', color: '#666' }}>H{holeIdx + 10}</div>
+                    <div>{score ?? '—'}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* OCR Results */}
+      {ocrResult && (
+        <div style={{ marginTop: '30px' }}>
+          <div style={{ 
+            padding: '15px', 
+            backgroundColor: ocrResult.status === 'success' ? '#d4edda' : '#fff3cd',
+            border: `1px solid ${ocrResult.status === 'success' ? '#c3e6cb' : '#ffeaa7'}`,
             borderRadius: '4px',
             marginBottom: '20px'
           }}>
             <h3 style={{ margin: '0 0 10px 0' }}>
-              {result.status === 'success' ? '✓ Success!' : '⚠ Partial Success'}
+              {ocrResult.status === 'success' ? '✓ Success!' : '⚠ Partial Success'}
             </h3>
             <p style={{ margin: '5px 0' }}>
-              <strong>Scorecard ID:</strong> {result.scorecard_id}
+              <strong>Scorecard ID:</strong> {ocrResult.scorecard_id}
             </p>
             <p style={{ margin: '5px 0' }}>
-              <strong>Filename:</strong> {result.filename}
+              <strong>Filename:</strong> {ocrResult.filename}
             </p>
             <p style={{ margin: '5px 0' }}>
-              <strong>Completed:</strong> {result.completed_steps} / {result.total_steps} steps
+              <strong>Completed:</strong> {ocrResult.completed_steps} / {ocrResult.total_steps} steps
             </p>
             <p style={{ margin: '5px 0' }}>
-              <strong>Total Time:</strong> {result.total_processing_time_ms}ms
+              <strong>Total Time:</strong> {ocrResult.total_processing_time_ms}ms
             </p>
           </div>
 
           <h3>Processing Steps:</h3>
-          {result.steps.map((step, index) => (
+          {ocrResult.steps.map((step, index) => (
             <div
               key={index}
               style={{
@@ -206,66 +361,65 @@ function App() {
                       </div>
                     </details>
 
-                      {/* Debug cell images - now using presigned URLs directly */}
-                      {step.data.debug_images && step.data.debug_images.length > 0 && (
-                        <details style={{ marginTop: '15px' }}>
-                          <summary style={{ cursor: 'pointer', color: '#007bff', fontWeight: 'bold' }}>
-                            🔍 View Debug Cell Images ({step.data.debug_images.length} images)
-                          </summary>
-                          <div style={{ 
-                            marginTop: '10px',
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
-                            gap: '15px',
-                            maxHeight: '600px',
-                            overflowY: 'auto',
-                            padding: '10px',
-                            backgroundColor: '#fafafa',
-                            borderRadius: '4px'
-                          }}>
-                            {step.data.debug_images.map((url: string, idx: number) => {
-                              // Extract filename from URL for display
-                              const filename = url.split('/').pop()?.split('?')[0] || `image-${idx}`;
-                              return (
-                                <div key={idx} style={{ 
-                                  textAlign: 'center',
-                                  padding: '10px',
-                                  backgroundColor: '#fff',
-                                  borderRadius: '4px',
-                                  border: '1px solid #ddd'
+                    {/* Debug cell images */}
+                    {step.data.debug_images && step.data.debug_images.length > 0 && (
+                      <details style={{ marginTop: '15px' }}>
+                        <summary style={{ cursor: 'pointer', color: '#007bff', fontWeight: 'bold' }}>
+                          🔍 View Debug Cell Images ({step.data.debug_images.length} images)
+                        </summary>
+                        <div style={{ 
+                          marginTop: '10px',
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+                          gap: '15px',
+                          maxHeight: '600px',
+                          overflowY: 'auto',
+                          padding: '10px',
+                          backgroundColor: '#fafafa',
+                          borderRadius: '4px'
+                        }}>
+                          {step.data.debug_images.map((url: string, idx: number) => {
+                            const filename = url.split('/').pop()?.split('?')[0] || `image-${idx}`;
+                            return (
+                              <div key={idx} style={{ 
+                                textAlign: 'center',
+                                padding: '10px',
+                                backgroundColor: '#fff',
+                                borderRadius: '4px',
+                                border: '1px solid #ddd'
+                              }}>
+                                <img
+                                  src={url}
+                                  alt={filename}
+                                  style={{
+                                    width: '100%',
+                                    border: '2px solid #007bff',
+                                    borderRadius: '4px',
+                                    imageRendering: 'pixelated',
+                                    minHeight: '60px',
+                                    backgroundColor: '#f0f0f0'
+                                  }}
+                                />
+                                <div style={{ 
+                                  fontSize: '10px', 
+                                  color: '#666', 
+                                  marginTop: '8px',
+                                  wordBreak: 'break-all',
+                                  fontFamily: 'monospace'
                                 }}>
-                                  <img
-                                    src={url}
-                                    alt={filename}
-                                    style={{
-                                      width: '100%',
-                                      border: '2px solid #007bff',
-                                      borderRadius: '4px',
-                                      imageRendering: 'pixelated',
-                                      minHeight: '60px',
-                                      backgroundColor: '#f0f0f0'
-                                    }}
-                                  />
-                                  <div style={{ 
-                                    fontSize: '10px', 
-                                    color: '#666', 
-                                    marginTop: '8px',
-                                    wordBreak: 'break-all',
-                                    fontFamily: 'monospace'
-                                  }}>
-                                    {filename}
-                                  </div>
+                                  {filename}
                                 </div>
-                              );
-                            })}
-                          </div>
-                        </details>
-                      )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </details>
+                    )}
                   </div>
                 )}
 
-                {/* OCR-specific data display (legacy - keeping for compatibility) */}
-                {step.step_name === 'ocr' && step.data && (
+                {/* Table detection data */}
+                {step.step_name === 'table_detection' && step.data && (
                   <div style={{ 
                     marginTop: '15px', 
                     padding: '15px', 
@@ -273,69 +427,21 @@ function App() {
                     borderRadius: '4px',
                     border: '1px solid #b3d9ff'
                   }}>
-                    <h5 style={{ margin: '0 0 10px 0' }}>OCR Results:</h5>
+                    <h5 style={{ margin: '0 0 10px 0' }}>Table Detection:</h5>
                     <p style={{ margin: '5px 0' }}>
-                      <strong>Words Detected:</strong> {step.data.total_words}
+                      <strong>Grid:</strong> {step.data.num_rows} rows × {step.data.num_cols} columns
                     </p>
                     <p style={{ margin: '5px 0' }}>
-                      <strong>Average Confidence:</strong> {step.data.avg_confidence}%
+                      <strong>Total Cells:</strong> {step.data.total_cells}
                     </p>
-                    <p style={{ margin: '5px 0' }}>
-                      <strong>Low Confidence Words:</strong> {step.data.low_confidence_count} (below 70%)
-                    </p>
-                    
-                    <details style={{ marginTop: '15px' }}>
-                      <summary style={{ cursor: 'pointer', color: '#007bff', fontWeight: 'bold' }}>
-                        View Full Text
-                      </summary>
-                      <pre style={{ 
-                        whiteSpace: 'pre-wrap',
-                        backgroundColor: '#fff',
-                        padding: '10px',
-                        marginTop: '10px',
-                        border: '1px solid #ddd',
-                        borderRadius: '4px'
-                      }}>
-                        {step.data.full_text}
-                      </pre>
-                    </details>
-
-                    <details style={{ marginTop: '10px' }}>
-                      <summary style={{ cursor: 'pointer', color: '#007bff', fontWeight: 'bold' }}>
-                        View All Words (with confidence)
-                      </summary>
-                      <div style={{ 
-                        maxHeight: '300px', 
-                        overflowY: 'auto',
-                        marginTop: '10px',
-                        backgroundColor: '#fff',
-                        padding: '10px',
-                        border: '1px solid #ddd',
-                        borderRadius: '4px'
-                      }}>
-                        {step.data.words.map((word: any, idx: number) => (
-                          <div 
-                            key={idx}
-                            style={{ 
-                              padding: '5px',
-                              marginBottom: '5px',
-                              backgroundColor: word.confidence < 70 ? '#ffe6e6' : '#e6ffe6',
-                              borderRadius: '3px',
-                              fontSize: '12px'
-                            }}
-                          >
-                            <strong>{word.text}</strong> - {word.confidence.toFixed(1)}%
-                            <span style={{ color: '#666', marginLeft: '10px' }}>
-                              @ ({word.bbox[0]}, {word.bbox[1]})
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </details>
                   </div>
                 )}
 
-                {step.data && step.step_name !== 'ocr' && step.step_name !== 'scorecard_extraction' && Object.keys(step.data).length > 0 && (
+                {/* Generic data display */}
+                {step.data && 
+                 step.step_name !== 'scorecard_extraction' && 
+                 step.step_name !== 'table_detection' && 
+                 Object.keys(step.data).length > 0 && (
                   <details style={{ marginTop: '10px' }}>
                     <summary style={{ cursor: 'pointer', color: '#007bff' }}>
                       View metadata
@@ -375,17 +481,7 @@ function App() {
                       marginTop: '10px',
                       fontStyle: 'italic'
                     }}>
-                      Green boxes = OCR found value, Red boxes = OCR returned nothing, Cell dimensions shown in gray
-                    </p>
-                  )}
-                  {step.step_name === 'ocr' && (
-                    <p style={{ 
-                      fontSize: '12px', 
-                      color: '#666', 
-                      marginTop: '10px',
-                      fontStyle: 'italic'
-                    }}>
-                      Green boxes = high confidence (≥70%), Red boxes = low confidence (&lt;70%)
+                      Green boxes = OCR found value, Red boxes = OCR returned nothing
                     </p>
                   )}
                 </div>
