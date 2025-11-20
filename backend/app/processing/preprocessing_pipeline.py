@@ -1,150 +1,71 @@
+from fastapi import APIRouter, HTTPException
+from app.config import get_settings
 import logging
 import time
-from typing import List, Optional, Tuple
-from . import image_operations as ops
+
+from app.schemas.scorecard import (
+    ProcessScorecardRequest, 
+    ProcessScorecardResponse, 
+    ProcessScorecardClaudeRequest, 
+    ProcessScorecardClaudeResponse
+)
+from app.services import scorecard_service
+from app.services.s3_service import s3_service
+from app.services.claude_ocr_service import get_claude_service
+
 
 logger = logging.getLogger(__name__)
+router = APIRouter()
+settings = get_settings()
 
-class PreprocessingStep:
-    """Data container for a single preprocessing step result"""
-    def __init__(
-        self, 
-        step_name: str, 
-        status: str,
-        image_bytes: Optional[bytes] = None,
-        image_base64: Optional[str] = None,
-        data: Optional[dict] = None,
-        processing_time_ms: int = 0,
-        error: Optional[str] = None
-    ):
-        self.step_name = step_name
-        self.status = status
-        self.image_bytes = image_bytes
-        self.image_base64 = image_base64
-        self.data = data or {}
-        self.processing_time_ms = processing_time_ms
-        self.error = error
 
-def run_pipeline(
-    image_bytes: bytes, 
-    include_base64: bool = True
-) -> Tuple[List[PreprocessingStep], Optional[bytes]]:
+@router.post("/process-scorecard", response_model=ProcessScorecardResponse)
+async def process_scorecard(request: ProcessScorecardRequest):
     """
-    Run full preprocessing pipeline
-    
-    Args:
-        image_bytes: Raw image data
-        include_base64: Whether to include base64 encoded images in results
-    
-    Returns:
-        (list of step results, final image bytes or None if failed)
+    Process a scorecard from S3 through the full preprocessing pipeline
     """
-    steps = []
-    
     try:
-        # Convert bytes to OpenCV format
-        img = ops.bytes_to_image(image_bytes)
-        logger.info(f"Original image shape: {img.shape}")
-        
-        # Step 1: Grayscale conversion
-        start = time.time()
-        img, data = ops.grayscale(img)
-        img_bytes = ops.image_to_bytes(img)
-        img_base64 = ops.image_to_base64(img) if include_base64 else None
-        
-        steps.append(PreprocessingStep(
-            step_name="grayscale",
-            status="success",
-            image_bytes=img_bytes,
-            image_base64=img_base64,
-            data=data,
-            processing_time_ms=int((time.time() - start) * 1000)
-        ))
-
-        # Step 2: auto rotate image
-        start = time.time()
-        img, data = ops.auto_rotate(img)
-        img_bytes = ops.image_to_bytes(img)
-        img_base64 = ops.image_to_base64(img) if include_base64 else None
-        
-        steps.append(PreprocessingStep(
-            step_name="auto_rotation",
-            status="success",
-            image_bytes=img_bytes,
-            image_base64=img_base64,
-            data=data,
-            processing_time_ms=int((time.time() - start) * 1000)
-        ))
-        
-        # Step 3: Contrast enhancement
-        start = time.time()
-        img, data = ops.enhance_contrast(img)
-        img_bytes = ops.image_to_bytes(img)
-        img_base64 = ops.image_to_base64(img) if include_base64 else None
-        
-        steps.append(PreprocessingStep(
-            step_name="contrast_enhancement",
-            status="success",
-            image_bytes=img_bytes,
-            image_base64=img_base64,
-            data=data,
-            processing_time_ms=int((time.time() - start) * 1000)
-        ))
-        
-        # Step 4: Denoising
-        start = time.time()
-        img, data = ops.denoise(img)
-        img_bytes = ops.image_to_bytes(img)
-        img_base64 = ops.image_to_base64(img) if include_base64 else None
-        
-        steps.append(PreprocessingStep(
-            step_name="denoising",
-            status="success",
-            image_bytes=img_bytes,
-            image_base64=img_base64,
-            data=data,
-            processing_time_ms=int((time.time() - start) * 1000)
-        ))
-        
-        # Step 5: Binarization
-        start = time.time()
-        img, data = ops.binarize(img)
-        img_bytes = ops.image_to_bytes(img)
-        img_base64 = ops.image_to_base64(img) if include_base64 else None
-        
-        steps.append(PreprocessingStep(
-            step_name="binarization",
-            status="success",
-            image_bytes=img_bytes,
-            image_base64=img_base64,
-            data=data,
-            processing_time_ms=int((time.time() - start) * 1000)
-        ))
-        
-        # Step 6: Deskewing (save as PNG for final OCR input)
-        start = time.time()
-        # img, data = ops.deskew(img)
-        img_bytes = ops.image_to_bytes(img, format='PNG')
-        img_base64 = ops.image_to_base64(img, format='PNG') if include_base64 else None
-        
-        steps.append(PreprocessingStep(
-            step_name="deskewing",
-            status="success",
-            image_bytes=img_bytes,
-            image_base64=img_base64,
-            data=data,
-            processing_time_ms=int((time.time() - start) * 1000)
-        ))
-        
-        logger.info(f"Pipeline completed successfully with {len(steps)} steps")
-        return steps, img_bytes
-        
+        result = await scorecard_service.process_scorecard(request.s3_key)
+        return result
     except Exception as e:
-        logger.error(f"Pipeline failed: {str(e)}")
-        steps.append(PreprocessingStep(
-            step_name=f"failed_at_step_{len(steps) + 1}",
-            status="error",
-            error=str(e),
-            processing_time_ms=0
-        ))
-        return steps, None
+        logger.error(f"Error processing scorecard: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/process-scorecard-claude", response_model=ProcessScorecardClaudeResponse)
+async def process_scorecard_claude_endpoint(request: ProcessScorecardClaudeRequest):
+    """Process scorecard using Claude Vision API"""
+    try:
+        start_time = time.time()
+        
+        # Generate scorecard ID
+        scorecard_id = s3_service.generate_scorecard_id()
+        
+        # Download image from S3
+        logger.info(f"Processing scorecard {scorecard_id} with Claude API")
+        image_bytes, filename = await s3_service.download_file(request.s3_key)
+        
+        # Extract data using Claude
+        claude = get_claude_service()
+        result = await claude.extract_scorecard_data(image_bytes)
+        
+        # Calculate processing time
+        processing_time = int((time.time() - start_time) * 1000)
+        
+        # Build response
+        return ProcessScorecardClaudeResponse(
+            scorecard_id=scorecard_id,
+            filename=filename,
+            players=result.get('players', []),
+            winner=result.get('winner'),
+            course=result.get('course'),
+            date=result.get('date'),
+            processing_time_ms=processing_time
+        )
+        
+    except ValueError as e:
+        logger.error(f"Configuration error: {e}")
+        raise HTTPException(status_code=500, detail="Claude API not configured. Please set ANTHROPIC_API_KEY environment variable.")
+    except Exception as e:
+        logger.error(f"Error processing scorecard with Claude: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))

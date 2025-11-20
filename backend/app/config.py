@@ -7,6 +7,8 @@ class Settings(BaseSettings):
     aws_secret_access_key: str
     s3_bucket_name: str
     s3_region: str = "us-west-1"
+
+    anthropic_api_key: str = ""
     
     class Config:
         env_file = ".env"

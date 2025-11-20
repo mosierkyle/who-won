@@ -50,7 +50,7 @@ async def upload_debug_images(scorecard_id: str, processed_folder: str) -> List[
             presigned_url = s3_service.generate_presigned_url(s3_key, expiration=3600)
             presigned_urls.append(presigned_url)
             
-            logger.info(f"Uploaded debug image: {s3_key}")
+            # logger.info(f"Uploaded debug image: {s3_key}")
             
             # Clean up local file
             os.remove(debug_file)
@@ -103,10 +103,10 @@ async def process_scorecard(s3_key: str) -> ProcessScorecardResponse:
     
     # Run preprocessing pipeline
     logger.info("Starting preprocessing pipeline")
-    preprocessing_steps, final_image_bytes = preprocessing_pipeline.run_pipeline(
-        image_bytes, 
-        include_base64=True
-    )
+    # preprocessing_steps, final_image_bytes = preprocessing_pipeline.run_pipeline(
+    #     image_bytes, 
+    #     include_base64=True
+    # )
     
     # Upload each preprocessing step to S3
     step_number = 1

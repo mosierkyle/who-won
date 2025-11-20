@@ -34,3 +34,16 @@ class ProcessScorecardResponse(BaseModel):
     steps: List[ProcessingStepResponse]
     s3_paths: dict
     total_processing_time_ms: int
+
+class ProcessScorecardClaudeRequest(BaseModel):
+    s3_key: str
+
+class ProcessScorecardClaudeResponse(BaseModel):
+    scorecard_id: str
+    filename: str
+    method: str = "claude_api"
+    players: list
+    winner: str = None
+    course: str = None
+    date: str = None
+    processing_time_ms: int
