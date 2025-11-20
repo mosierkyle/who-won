@@ -2,7 +2,7 @@ import { Button, Group } from '@mantine/core';
 import { IconDownload } from '@tabler/icons-react';
 import { scorecardApi } from '../services/api';
 import { useState } from 'react';
-import type { ScorecardData } from '../types/scorecard';
+import type { ScorecardData } from '../types';
 
 interface ExportButtonProps {
   data: ScorecardData;

@@ -6,7 +6,7 @@ import {
   createColumnHelper,
 } from '@tanstack/react-table';
 import { Table, TextInput, Badge } from '@mantine/core';
-import type { Player } from '../types/scorecard';
+import type { Player } from '../types';
 
 interface ScorecardTableProps {
   players: Player[];

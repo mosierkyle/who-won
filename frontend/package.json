@@ -6,22 +6,31 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "generate-types": "openapi-typescript http://localhost:8000/openapi.json -o src/types/api.d.ts",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "lint:fix": "eslint . --ext ts,tsx --fix"
   },
   "dependencies": {
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
     "@mantine/core": "^7.13.5",
-    "@mantine/hooks": "^7.13.5",
     "@mantine/dropzone": "^7.13.5",
-    "@tanstack/react-table": "^8.20.5",
+    "@mantine/hooks": "^7.13.5",
     "@tabler/icons-react": "^3.19.0",
-    "axios": "^1.7.7"
+    "@tanstack/react-table": "^8.20.5",
+    "axios": "^1.7.7",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
     "@vitejs/plugin-react": "^4.3.3",
+    "eslint": "^8.57.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.5",
+    "openapi-typescript": "^6.7.6",
     "typescript": "^5.6.3",
     "vite": "^5.4.10"
   }

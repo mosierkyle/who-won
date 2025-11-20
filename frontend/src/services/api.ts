@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { ExportRequest, ProcessScorecardResponse } from '../types/scorecard';
+import type { ExportRequest, ProcessScorecardResponse } from '../types';
 
 const API_BASE_URL = 'http://localhost:8000/api';
 

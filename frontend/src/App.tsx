@@ -9,7 +9,7 @@ import { ScorecardTable } from './components/ScorecardTable';
 import { WinnerDisplay } from './components/WinnerDisplay';
 import { ExportButton } from './components/ExportButton';
 import { scorecardApi } from './services/api';
-import { ScorecardData, Player } from './types/scorecard';
+import type { Player, ScorecardData } from './types';
 
 function App() {
   const [loading, setLoading] = useState(false);
@@ -89,7 +89,7 @@ function App() {
 
               <ScorecardTable
                 players={scorecardData.players}
-                par={scorecardData.par}
+                par={scorecardData.par || []}
                 onPlayerUpdate={handlePlayerUpdate}
               />
 
