@@ -10,9 +10,9 @@ logging.basicConfig(
 )
 
 app = FastAPI(
-    title="Golf Scorecard Analyzer",
-    description="OCR-powered golf scorecard analyzer",
-    version="0.1.0"
+    title="Golf Scorecard API",
+    description="API for processing and analyzing golf scorecards",
+    version="1.0.0"
 )
 
 app.add_middleware(
@@ -23,7 +23,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(scorecard.router)
+app.include_router(scorecard.router, prefix="/api",)
 
 @app.get("/")
 def read_root():
