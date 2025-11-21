@@ -105,10 +105,9 @@ def find_line_positions(lines_img: np.ndarray, is_horizontal: bool, min_length: 
     # Sort and remove duplicates (lines close to each other)
     positions = sorted(set(positions))
     
-    # UPDATED: More aggressive duplicate removal - merge lines within 20 pixels
     filtered = []
     for pos in positions:
-        if not filtered or abs(pos - filtered[-1]) > 20:  # Changed from 10 to 20
+        if not filtered or abs(pos - filtered[-1]) > 20: 
             filtered.append(pos)
     
     logger.info(f"After duplicate removal: {len(filtered)} unique lines")
@@ -185,7 +184,7 @@ def detect_table(img: np.ndarray, debug: bool = False) -> Optional[TableGrid]:
     
     # UPDATED: Even smaller kernel sizes for better detection
     # Scorecards often have thinner lines than documents
-    h_kernel_length = max(width // 15, 40)  # Changed from //10 to //15
+    h_kernel_length = max(width // 15, 40)
     v_kernel_length = max(height // 15, 40)
     
     logger.info(f"Using kernel lengths: horizontal={h_kernel_length}, vertical={v_kernel_length}")
@@ -202,8 +201,8 @@ def detect_table(img: np.ndarray, debug: bool = False) -> Optional[TableGrid]:
     
     # Find positions of lines
     # UPDATED: Much more lenient minimum lengths
-    min_h_length = width // 8   # Changed from //5 to //8
-    min_v_length = height // 8  # Changed from //5 to //8
+    min_h_length = width // 8 
+    min_v_length = height // 8
     
     logger.info(f"Minimum line lengths: horizontal={min_h_length}, vertical={min_v_length}")
     

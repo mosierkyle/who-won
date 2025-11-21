@@ -64,7 +64,7 @@ class ClaudeService:
                             "type": "image",
                             "source": {
                                 "type": "base64",
-                                "media_type": media_type,  # CHANGED: Use detected type
+                                "media_type": media_type,
                                 "data": image_base64,
                             },
                         },

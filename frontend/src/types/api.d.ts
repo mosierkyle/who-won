@@ -77,8 +77,6 @@ export interface components {
       name: string;
       /** Scores */
       scores: (number | null)[];
-      /** Handicap */
-      handicap?: number | null;
       /** Total */
       total?: number | null;
       /** Front Nine Total */

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MantineProvider, Container, Title, Stack, LoadingOverlay, Alert } from '@mantine/core';
+import { MantineProvider, Container, Title, Stack, LoadingOverlay, Alert, Button } from '@mantine/core';
 import '@mantine/core/styles.css';
 import '@mantine/dropzone/styles.css';
 import { IconInfoCircle } from '@tabler/icons-react';
@@ -39,13 +39,15 @@ function App() {
   const handlePlayerUpdate = (playerIndex: number, updatedPlayer: Player) => {
     if (!scorecardData) return;
 
-    // Recalculate totals
+    // CHANGED: Fix total calculation - sum of scores array
     const validScores = updatedPlayer.scores.filter(s => s !== null) as number[];
     updatedPlayer.total = validScores.length > 0 ? validScores.reduce((a, b) => a + b, 0) : undefined;
     
+    // Front 9 (indices 0-8)
     const frontNine = updatedPlayer.scores.slice(0, 9).filter(s => s !== null) as number[];
     updatedPlayer.front_nine_total = frontNine.length > 0 ? frontNine.reduce((a, b) => a + b, 0) : undefined;
     
+    // Back 9 (indices 9-17)
     const backNine = updatedPlayer.scores.slice(9, 18).filter(s => s !== null) as number[];
     updatedPlayer.back_nine_total = backNine.length > 0 ? backNine.reduce((a, b) => a + b, 0) : undefined;
 
@@ -53,7 +55,7 @@ function App() {
     const updatedPlayers = [...scorecardData.players];
     updatedPlayers[playerIndex] = updatedPlayer;
 
-    // Recalculate winner
+    // CHANGED: Recalculate winner based on total scores
     const playersWithTotals = updatedPlayers.filter(p => p.total !== undefined);
     const newWinner = playersWithTotals.length > 0
       ? playersWithTotals.reduce((prev, curr) => (curr.total! < prev.total! ? curr : prev)).name
@@ -75,11 +77,7 @@ function App() {
             </Alert>
           )}
 
-          <FileUpload onFileSelect={handleFileSelect} loading={loading} />
-
-          <LoadingOverlay visible={loading} />
-
-          {scorecardData && (
+          {scorecardData ? (
             <>
               <WinnerDisplay 
                 winner={winner} 
@@ -94,6 +92,24 @@ function App() {
               />
 
               <ExportButton data={scorecardData} />
+
+              <Button
+                variant="light"
+                onClick={() => {
+                  setScorecardData(null);
+                  setWinner(null);
+                  setError(null);
+                }}
+                fullWidth
+              >
+                Analyze Another Scorecard
+              </Button>
+            </>
+          ) : (
+            /* CHANGED: Only show upload when no scorecard loaded */
+            <>
+              <FileUpload onFileSelect={handleFileSelect} loading={loading} />
+              <LoadingOverlay visible={loading} />
             </>
           )}
         </Stack>

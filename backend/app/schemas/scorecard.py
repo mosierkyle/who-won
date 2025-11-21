@@ -11,10 +11,9 @@ class Player(BaseModel):
     """Player data with scores"""
     name: str
     scores: List[Optional[int]] = Field(..., min_length=18, max_length=18)
-    handicap: Optional[int] = None
-    total: Optional[int] = None  # Calculated on backend
-    front_nine_total: Optional[int] = None  # NEW: Holes 1-9 total
-    back_nine_total: Optional[int] = None   # NEW: Holes 10-18 total
+    total: Optional[int] = None
+    front_nine_total: Optional[int] = None 
+    back_nine_total: Optional[int] = None
 
 class ScorecardData(BaseModel):
     """Complete scorecard data"""

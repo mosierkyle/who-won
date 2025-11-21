@@ -64,7 +64,6 @@ def denoise(img: np.ndarray) -> Tuple[np.ndarray, Dict]:
     Remove noise while preserving edges using bilateral filter
     Better for handwritten scorecards than fastNlMeans
     """
-    # CHANGED: Bilateral filter preserves edges better for handwriting
     denoised = cv2.bilateralFilter(img, d=9, sigmaColor=75, sigmaSpace=75)
     data = {
         "method": "bilateralFilter",
