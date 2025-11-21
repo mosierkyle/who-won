@@ -1,11 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import {
   useReactTable,
   getCoreRowModel,
   flexRender,
   createColumnHelper,
 } from '@tanstack/react-table';
-import { Table, TextInput, Badge, Box, Tooltip } from '@mantine/core';
+import { Table, TextInput, Box, Tooltip } from '@mantine/core';
 import type { Player } from '../types';
 
 interface ScorecardTableProps {
@@ -16,29 +16,27 @@ interface ScorecardTableProps {
 
 const columnHelper = createColumnHelper<Player>();
 
-// const getScoringBadge = (score: number | null, par: number | null) => {
-//   if (score === null || par === null) return null;
+// Helper to determine scoring type
+const getScoringType = (score: number | null, par: number | null) => {
+  if (score === null || par === null) return null;
+  const diff = score - par;
   
-//   const diff = score - par;
+  if (diff <= -3) return { type: 'albatross', color: '#9775fa', label: 'Albatross or better' };
+  if (diff === -2) return { type: 'eagle', color: '#4c6ef5', label: 'Eagle' };
+  if (diff === -1) return { type: 'birdie', color: '#ff6b6b', label: 'Birdie' };
+  if (diff === 0) return null;
+  if (diff === 1) return { type: 'bogey', color: '#fd7e14', label: 'Bogey' };
+  if (diff >= 2) return { type: 'double', color: '#495057', label: 'Double Bogey+' };
   
-//   if (diff <= -3) return { label: '▲', color: 'grape', title: 'Albatross or better' }; // Triangle
-//   if (diff === -2) return { label: '◆◆', color: 'blue', title: 'Eagle' }; // Double circle
-//   if (diff === -1) return { label: '◯', color: 'red', title: 'Birdie' }; // Circle
-//   if (diff === 0) return null; // Par - no badge
-//   if (diff === 1) return { label: '□', color: 'orange', title: 'Bogey' }; // Square
-//   if (diff >= 2) return { label: '□□', color: 'dark', title: 'Double Bogey+' }; // Double square
-  
-//   return null;
-// };
+  return null;
+};
 
 export function ScorecardTable({ players, par, onPlayerUpdate }: ScorecardTableProps) {
-  const [showScoring, setShowScoring] = useState(true);
-
   const columns = useMemo(() => {
     const baseColumns = [
       columnHelper.accessor('name', {
         header: 'Player',
-        size: 180,
+        size: 150,
         cell: (info) => (
           <TextInput
             value={info.getValue()}
@@ -53,24 +51,36 @@ export function ScorecardTable({ players, par, onPlayerUpdate }: ScorecardTableP
       }),
     ];
 
-    const holeColumns = Array.from({ length: 18 }, (_, i) =>
+    // Holes 1-9
+    const frontNineColumns = Array.from({ length: 9 }, (_, i) =>
       columnHelper.display({
         id: `hole-${i + 1}`,
-        header: () => (
-          <div style={{ textAlign: 'center', fontWeight: 700, fontSize: '12px' }}>
-            {i + 1}
-          </div>
-        ),
+        header: () => <div style={{ textAlign: 'center', fontWeight: 700 }}>{i + 1}</div>,
         size: 45,
         cell: (info) => {
           const player = info.row.original;
           const score = player.scores[i];
           const holePar = par?.[i] ?? null;
           const hasData = score !== null;
-        //   const badge = showScoring ? getScoringBadge(score, holePar) : null;
+          const scoring = getScoringType(score, holePar);
           
           const cell = (
-            <Box pos="relative">
+            <Box pos="relative" >
+                {scoring?.type === 'birdie' && (
+                    <Box
+                    style={{
+                        marginTop: "-7px",
+                        zIndex: "10",
+                        position: 'absolute',
+                        inset: 0,
+                        borderRadius: '50%',
+                        border: `1px solid ${scoring.color}`,
+                        pointerEvents: 'none',
+                        height: "45px",
+                        borderColor: "green"
+                    }}
+                    />
+                )}
               <TextInput
                 value={score ?? ''}
                 onChange={(e) => {
@@ -88,21 +98,14 @@ export function ScorecardTable({ players, par, onPlayerUpdate }: ScorecardTableP
                     border: hasData ? '1px solid #dee2e6' : '2px solid #ffd43b',
                     backgroundColor: hasData ? 'transparent' : '#fff9db',
                     fontWeight: 600,
+                    borderRadius: '4px',
+                    borderColor: (hasData ? '#dee2e6' : '#ffd43b'),
+                    borderWidth: (hasData ? '1px' : '2px'),
+                    color: 'inherit',
                   }
                 }}
                 placeholder="-"
               />
-              {/* {badge && (
-                <div style={{
-                  position: 'absolute',
-                  top: '-2px',
-                  right: '2px',
-                  fontSize: '10px',
-                  color: badge.color,
-                }}>
-                  {badge.label}
-                </div>
-              )} */}
             </Box>
           );
 
@@ -114,57 +117,139 @@ export function ScorecardTable({ players, par, onPlayerUpdate }: ScorecardTableP
             );
           }
 
-        //   if (badge && showScoring) {
-        //     return (
-        //       <Tooltip label={badge.title} position="top">
-        //         {cell}
-        //       </Tooltip>
-        //     );
-        //   }
+          if (scoring) {
+            return (
+              <Tooltip label={scoring.label} position="top">
+                {cell}
+              </Tooltip>
+            );
+          }
 
           return cell;
         },
       })
     );
 
-    const totalColumns = [
-      columnHelper.accessor('front_nine_total', {
-        header: 'Out',
-        size: 50,
-        cell: (info) => {
-          const total = info.getValue();
-          return (
-            <div style={{ textAlign: 'center', fontWeight: 700, color: '#228be6' }}>
-              {total ?? '-'}
-            </div>
-          );
-        },
-      }),
-      columnHelper.accessor('back_nine_total', {
-        header: 'In',
-        size: 50,
-        cell: (info) => {
-          const total = info.getValue();
-          return (
-            <div style={{ textAlign: 'center', fontWeight: 700, color: '#228be6' }}>
-              {total ?? '-'}
-            </div>
-          );
-        },
-      }),
-      columnHelper.accessor('total', {
-        header: 'Total',
-        size: 60,
-        cell: (info) => (
-          <Badge color="blue" size="lg" style={{ minWidth: '50px' }}>
-            {info.getValue() ?? '-'}
-          </Badge>
-        ),
-      }),
-    ];
+    const outColumn = columnHelper.accessor('front_nine_total', {
+      header: 'Out',
+      size: 50,
+      cell: (info) => (
+        <div style={{ textAlign: 'center', fontWeight: 700, fontSize: '14px', color: '#228be6' }}>
+          {info.getValue() ?? '-'}
+        </div>
+      ),
+    });
 
-    return [...baseColumns, ...holeColumns, ...totalColumns];
-  }, [onPlayerUpdate, par, showScoring]);
+    // Holes 10-18
+    const backNineColumns = Array.from({ length: 9 }, (_, i) =>
+      columnHelper.display({
+        id: `hole-${i + 10}`,
+        header: () => <div style={{ textAlign: 'center', fontWeight: 700 }}>{i + 10}</div>,
+        size: 45,
+        cell: (info) => {
+          const player = info.row.original;
+          const holeIndex = i + 9;
+          const score = player.scores[holeIndex];
+          const holePar = par?.[holeIndex] ?? null;
+          const hasData = score !== null;
+          const scoring = getScoringType(score, holePar);
+          
+          const cell = (
+            <Box pos="relative" >
+                {scoring?.type === 'birdie' && (
+                    <Box
+                    style={{
+                        marginTop: "-7px",
+                        zIndex: "10",
+                        position: 'absolute',
+                        inset: 0,
+                        borderRadius: '50%',
+                        border: `1px solid ${scoring.color}`,
+                        pointerEvents: 'none',
+                        height: "45px",
+                        borderColor: "green"
+                    }}
+                    />
+                )}
+              <TextInput
+                value={score ?? ''}
+                onChange={(e) => {
+                  const newScores = [...player.scores];
+                  newScores[holeIndex] = e.target.value === '' ? null : parseInt(e.target.value);
+                  onPlayerUpdate(info.row.index, { ...player, scores: newScores });
+                }}
+                size="xs"
+                type="number"
+                styles={{
+                  input: {
+                    textAlign: 'center',
+                    width: '45px',
+                    padding: '4px',
+                    border: hasData ? '1px solid #dee2e6' : '2px solid #ffd43b',
+                    backgroundColor: hasData ? 'transparent' : '#fff9db',
+                    fontWeight: 600,
+                    borderRadius: '4px',
+                    borderColor: (hasData ? '#dee2e6' : '#ffd43b'),
+                    borderWidth: (hasData ? '1px' : '2px'),
+                    color: 'inherit',
+                  }
+                }}
+                placeholder="-"
+              />
+            </Box>
+          );
+
+          if (!hasData) {
+            return (
+              <Tooltip label="Missing score - please fill in" position="top">
+                {cell}
+              </Tooltip>
+            );
+          }
+
+          if (scoring) {
+            return (
+              <Tooltip label={scoring.label} position="top">
+                {cell}
+              </Tooltip>
+            );
+          }
+
+          return cell;
+        },
+      })
+    );
+
+    const inColumn = columnHelper.accessor('back_nine_total', {
+      header: 'In',
+      size: 50,
+      cell: (info) => (
+        <div style={{ textAlign: 'center', fontWeight: 700, fontSize: '14px', color: '#228be6' }}>
+          {info.getValue() ?? '-'}
+        </div>
+      ),
+    });
+
+    const totalColumn = columnHelper.accessor('total', {
+      header: 'Total',
+      size: 60,
+      cell: (info) => (
+        <div style={{ 
+          textAlign: 'center', 
+          fontWeight: 700, 
+          fontSize: '16px',
+          padding: '4px 8px',
+          backgroundColor: '#228be6',
+          color: 'white',
+          borderRadius: '4px',
+        }}>
+          {info.getValue() ?? '-'}
+        </div>
+      ),
+    });
+
+    return [...baseColumns, ...frontNineColumns, outColumn, ...backNineColumns, inColumn, totalColumn];
+  }, [onPlayerUpdate, par]);
 
   const table = useReactTable({
     data: players,
@@ -173,14 +258,14 @@ export function ScorecardTable({ players, par, onPlayerUpdate }: ScorecardTableP
   });
 
   return (
-    <Box>
+    <Box style={{ overflowX: 'auto' }}>
       <Table 
         striped 
         highlightOnHover 
         withTableBorder
         style={{ 
           fontSize: '13px',
-          tableLayout: 'fixed',
+          minWidth: '1200px',
         }}
       >
         <Table.Thead>
@@ -190,7 +275,6 @@ export function ScorecardTable({ players, par, onPlayerUpdate }: ScorecardTableP
                 <Table.Th 
                   key={header.id}
                   style={{ 
-                    width: header.getSize(),
                     padding: '8px 4px',
                     textAlign: 'center',
                   }}
@@ -203,7 +287,6 @@ export function ScorecardTable({ players, par, onPlayerUpdate }: ScorecardTableP
         </Table.Thead>
         
         <Table.Tbody>
-          {/* Player rows */}
           {table.getRowModel().rows.map((row) => (
             <Table.Tr key={row.id}>
               {row.getVisibleCells().map((cell) => (
@@ -221,11 +304,13 @@ export function ScorecardTable({ players, par, onPlayerUpdate }: ScorecardTableP
           ))}
         </Table.Tbody>
 
+        {/* Par row at bottom */}
         {par && (
           <Table.Tfoot>
             <Table.Tr style={{ backgroundColor: '#e9ecef', fontWeight: 700 }}>
-              <Table.Td style={{ padding: '8px', textAlign: 'left' }}>Par</Table.Td>
-              {par.map((p, i) => (
+              <Table.Td style={{ padding: '8px' }}>Par</Table.Td>
+              {/* Front 9 */}
+              {par.slice(0, 9).map((p, i) => (
                 <Table.Td key={i} style={{ padding: '4px', textAlign: 'center' }}>
                   {p ?? '-'}
                 </Table.Td>
@@ -233,6 +318,12 @@ export function ScorecardTable({ players, par, onPlayerUpdate }: ScorecardTableP
               <Table.Td style={{ textAlign: 'center' }}>
                 {par.slice(0, 9).filter(p => p !== null).reduce((sum, p) => sum + (p || 0), 0)}
               </Table.Td>
+              {/* Back 9 */}
+              {par.slice(9, 18).map((p, i) => (
+                <Table.Td key={i + 9} style={{ padding: '4px', textAlign: 'center' }}>
+                  {p ?? '-'}
+                </Table.Td>
+              ))}
               <Table.Td style={{ textAlign: 'center' }}>
                 {par.slice(9, 18).filter(p => p !== null).reduce((sum, p) => sum + (p || 0), 0)}
               </Table.Td>

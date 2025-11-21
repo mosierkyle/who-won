@@ -13,13 +13,11 @@ export interface GameModeOption {
   description: string;
 }
 
-// For Phase 2: Team support
 export interface Team {
   name: string;
   players: Player[];
 }
 
-// For future: Scorecard with metadata
 export interface ScorecardWithMetadata extends ScorecardData {
   id: string;
   created_at: string;

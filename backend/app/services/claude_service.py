@@ -4,7 +4,7 @@ import logging
 from typing import Dict
 import json
 import imghdr
-from PIL import Image
+from PIL import Image, ImageOps
 import io
 
 logger = logging.getLogger(__name__)
@@ -37,6 +37,7 @@ class ClaudeService:
     def _compress_image(self, image_bytes: bytes, max_size_mb: float = 4.5) -> bytes:
         """
         Compress image to under max_size_mb (default 4.5MB to be safe under 5MB limit)
+        Also fixes image rotation based on EXIF data
         
         Args:
             image_bytes: Original image bytes
@@ -47,19 +48,25 @@ class ClaudeService:
         """
         max_size_bytes = int(max_size_mb * 1024 * 1024)
         
-        # If already under limit, return as-is
-        if len(image_bytes) <= max_size_bytes:
-            logger.info(f"Image size OK: {len(image_bytes)} bytes")
-            return image_bytes
-        
-        logger.info(f"Compressing image from {len(image_bytes)} bytes to under {max_size_bytes} bytes")
-        
         # Open image
         img = Image.open(io.BytesIO(image_bytes))
+        
+        img = ImageOps.exif_transpose(img)
         
         # Convert RGBA to RGB if needed
         if img.mode == 'RGBA':
             img = img.convert('RGB')
+        
+        # If already under limit after rotation fix, check size
+        output = io.BytesIO()
+        img.save(output, format='JPEG', quality=85, optimize=True)
+        processed_bytes = output.getvalue()
+        
+        if len(processed_bytes) <= max_size_bytes:
+            logger.info(f"Image size OK: {len(processed_bytes)} bytes (after rotation fix)")
+            return processed_bytes
+        
+        logger.info(f"Compressing image from {len(processed_bytes)} bytes to under {max_size_bytes} bytes")
         
         # Start with quality 85, reduce if needed
         quality = 85
@@ -110,7 +117,7 @@ class ClaudeService:
             logger.info(f"Sending image to Claude API (Haiku, type: {media_type})...")
             
             message = self.client.messages.create(
-                model="claude-3-5-haiku-20241022",
+                model="claude-3-5-haiku-20241022",  # Correct Haiku 3.5 model ID
                 max_tokens=1500,
                 messages=[{
                     "role": "user",
@@ -135,8 +142,7 @@ Return ONLY valid JSON with this exact structure:
   "players": [
     {
       "name": "Player Name",
-      "scores": [score_hole_1, ..., score_hole_18],
-      "handicap": handicap_value_or_null
+      "scores": [score_hole_1, ..., score_hole_18]
     }
   ]
 }
@@ -145,7 +151,6 @@ RULES:
 - Extract ALL players and their scores for all 18 holes
 - If a score/par is empty or unreadable, use null
 - If par row is not visible, use null for entire par array
-- If handicap not shown, use null
 - Clean player names (remove extra spaces/characters)
 - DO NOT include markdown, backticks, or explanations
 - Output MUST be valid JSON only
