@@ -1,30 +1,19 @@
-# Golf Scorecard Analyzer - Phase 1 MVP
+# Golf Scorecard Analyzer
 
-A web application for uploading golf scorecards, extracting data using AI, and analyzing results.
-
-## Features (Phase 1)
-- 📤 Drag-and-drop scorecard image upload
-- 🤖 AI-powered data extraction using Claude Haiku
-- ✏️ Editable scorecard table with live updates
-- 🏆 Automatic winner calculation (Stroke Play)
-- 📊 Front 9 / Back 9 / Total score tracking
-- 📥 CSV export functionality
-- ⚠️ Visual indicators for missing data
-
-## Tech Stack
+Upload Scorecard, find out who won!
 
 ### Backend
 - FastAPI
 - Python 3.9+
 - Anthropic Claude API (Haiku model)
-- AWS S3 for image storage
-- Pydantic for data validation
+- AWS S3
+- Pydantic
 
 ### Frontend
-- React 18 + TypeScript
+- React + TypeScript
 - Vite
 - Mantine UI components
-- TanStack Table for editable tables
+- TanStack Table
 - Axios for API calls
 
 ## Setup Instructions
@@ -92,88 +81,8 @@ A web application for uploading golf scorecards, extracting data using AI, and a
 
 1. Open `http://localhost:5173` in your browser
 2. Drag and drop a golf scorecard image (or click to select)
-3. Wait for AI processing (~2-3 seconds)
+3. Wait for processing (~2-3 seconds)
 4. View extracted data in the editable table
 5. Edit any scores, names, or handicaps as needed
 6. See the winner displayed at the top
 7. Export to CSV for record-keeping
-
-## API Endpoints
-
-### `POST /api/upload-and-process`
-Upload and process a scorecard image
-
-**Request:** `multipart/form-data` with `file` field
-
-**Response:**
-```json
-{
-  "scorecard_id": "uuid",
-  "data": {
-    "course": "Course Name",
-    "date": "2024-01-01",
-    "par": [4,4,3,5,...],
-    "players": [
-      {
-        "name": "Player Name",
-        "scores": [4,5,3,...],
-        "handicap": 10,
-        "total": 85,
-        "front_nine_total": 42,
-        "back_nine_total": 43
-      }
-    ]
-  },
-  "winner": "Player Name",
-  "processing_time_ms": 2500
-}
-```
-
-### `POST /api/export`
-Export scorecard data
-
-**Request:**
-```json
-{
-  "data": { /* scorecard data */ },
-  "format": "csv"
-}
-```
-
-**Response:** File download (CSV)
-
-## Cost Optimization
-
-- Using **Claude Haiku** instead of Sonnet: **~$0.003** per scorecard (5x cheaper)
-- Max tokens capped at 1500 for structured data extraction
-- Average processing time: 2-3 seconds
-
-## Roadmap
-
-### Phase 1.5 (Coming Soon)
-- [ ] Excel export
-- [ ] Better error handling
-- [ ] Loading states and progress indicators
-
-### Phase 2
-- [ ] Handicap adjustments
-- [ ] Match Play mode
-- [ ] Best Ball mode with team support
-- [ ] Team assignment UI
-
-### Phase 3
-- [ ] Tournament support (multiple scorecards)
-- [ ] Integration with golf apps (18Birdies, GHIN)
-- [ ] Mobile app version
-- [ ] Historical data storage
-
-## Notes
-
-- Yellow highlighting indicates cells with missing data that Claude couldn't extract
-- All scores are editable in real-time
-- Winner recalculates automatically when scores change
-- CSV export includes par row, all scores, and totals
-
-## License
-
-MIT
