@@ -17,19 +17,15 @@ router = APIRouter()
 async def upload_and_process_scorecard(file: UploadFile = File(...)):
     """
     Upload scorecard image and process it with Claude API
-    
-    Flow:
-    1. Receive image from frontend
-    2. Upload to S3
-    3. Send to Claude for data extraction
-    4. Calculate totals and winner
-    5. Return structured data
     """
     try:
         start_time = time.time()
         
+        logger.info(f"Received file: {file.filename}, content_type: {file.content_type}")
+        
         # Validate file type
         if not file.content_type.startswith('image/'):
+            logger.error(f"Invalid file type: {file.content_type}")
             raise HTTPException(status_code=400, detail="File must be an image")
         
         # Generate scorecard ID
@@ -38,6 +34,7 @@ async def upload_and_process_scorecard(file: UploadFile = File(...)):
         
         # Read file bytes
         file_bytes = await file.read()
+        logger.info(f"Read {len(file_bytes)} bytes from upload")
         
         # Upload to S3
         s3_key = f"uploads/{scorecard_id}/{file.filename}"
@@ -45,14 +42,18 @@ async def upload_and_process_scorecard(file: UploadFile = File(...)):
         logger.info(f"Uploaded to S3: {s3_key}")
         
         # Extract data using Claude
+        logger.info("Sending to Claude API...")
         claude = get_claude_service()
         raw_data = await claude.extract_scorecard_data(file_bytes)
+        logger.info(f"Claude response: {raw_data}")
         
         # Convert to Pydantic models
         players = [Player(**p) for p in raw_data.get('players', [])]
+        logger.info(f"Converted {len(players)} players")
         
         # Calculate totals and winner
         players_with_totals, winner = process_players(players)
+        logger.info(f"Winner: {winner}")
         
         # Build scorecard data
         scorecard_data = ScorecardData(
@@ -65,7 +66,7 @@ async def upload_and_process_scorecard(file: UploadFile = File(...)):
         # Calculate processing time
         processing_time = int((time.time() - start_time) * 1000)
         
-        logger.info(f"Processed scorecard {scorecard_id} in {processing_time}ms")
+        logger.info(f"✅ Processed scorecard {scorecard_id} in {processing_time}ms")
         
         return ProcessScorecardResponse(
             scorecard_id=scorecard_id,
@@ -75,13 +76,13 @@ async def upload_and_process_scorecard(file: UploadFile = File(...)):
         )
         
     except ValueError as e:
-        logger.error(f"Configuration error: {e}")
+        logger.error(f"Configuration error: {e}", exc_info=True)
         raise HTTPException(
             status_code=500, 
             detail="Claude API not configured. Please set ANTHROPIC_API_KEY environment variable."
         )
     except Exception as e:
-        logger.error(f"Error processing scorecard: {e}", exc_info=True)
+        logger.error(f"❌ Error processing scorecard: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/export")

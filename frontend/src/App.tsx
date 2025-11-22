@@ -9,7 +9,7 @@ import { ScorecardTable } from './components/ScorecardTable';
 import { WinnerDisplay } from './components/WinnerDisplay';
 import { ExportButton } from './components/ExportButton';
 import { scorecardApi } from './services/api';
-import type { GameMode, Player, ScorecardData } from './types';
+import type { ScorecardData, Player, GameMode } from './types';
 
 function AppContent() {
   const [loading, setLoading] = useState(false);
@@ -24,15 +24,27 @@ function AppContent() {
       setLoading(true);
       setError(null);
 
+      console.log('Uploading file:', {
+        name: file.name,
+        size: file.size,
+        type: file.type
+      });
+
       const response = await scorecardApi.uploadAndProcess(file);
+      
+      console.log('Success! Response:', response);
       
       setScorecardData(response.data);
       setWinner(response.winner ?? null);
       
       console.log(`Processed in ${response.processing_time_ms}ms`);
-    } catch (err) {
-      console.error('Upload failed:', err);
-      setError('Failed to process scorecard. Please try again.');
+    } catch (err: any) {
+      console.error('Upload failed - Full error:', err);
+      console.error('Error response:', err.response?.data);
+      console.error('Error status:', err.response?.status);
+      
+      const errorMessage = err.response?.data?.detail || err.message || 'Failed to process scorecard';
+      setError(`Upload failed: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
