@@ -51,7 +51,6 @@ class ClaudeService:
         # Open image
         img = Image.open(io.BytesIO(image_bytes))
         
-        # CHANGED: Fix rotation based on EXIF orientation
         img = ImageOps.exif_transpose(img)
         
         # Convert RGBA to RGB if needed
@@ -110,17 +109,15 @@ class ClaudeService:
             Structured scorecard data
         """
         try:
-            # CHANGED: Compress image if needed
             image_bytes = self._compress_image(image_bytes)
             
             media_type = self._detect_image_type(image_bytes)
             image_base64 = base64.b64encode(image_bytes).decode('utf-8')
             
-            logger.info(f"Sending image to Claude API (Haiku, type: {media_type})...")
+            logger.info(f"Sending image to Claude API (Sonnet 4.5, type: {media_type})...")
             
-            # CHANGED: Use Sonnet 3.5 for better OCR accuracy (~$0.015 per scorecard)
             message = self.client.messages.create(
-                model="claude-3-5-sonnet-20240620",  # Correct Sonnet 3.5 model ID
+                model="claude-sonnet-4-5-20250929", 
                 max_tokens=1500,
                 messages=[{
                     "role": "user",
@@ -135,7 +132,6 @@ class ClaudeService:
                         },
                         {
                             "type": "text",
-                            # CHANGED: Simplified prompt - no winner calculation, just data extraction
                             "text": """Extract all data from this golf scorecard.
 
 Return ONLY valid JSON with this exact structure:
