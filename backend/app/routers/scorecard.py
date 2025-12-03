@@ -48,7 +48,15 @@ async def upload_and_process_scorecard(file: UploadFile = File(...)):
         logger.info(f"Claude response: {raw_data}")
         
         # Convert to Pydantic models
-        players = [Player(**p) for p in raw_data.get('players', [])]
+        try:
+            players = [Player(**p) for p in raw_data.get('players', [])]
+        except Exception as validation_error:
+            logger.error(f"❌ Validation error: {validation_error}")
+            logger.error(f"Raw data from Claude: {raw_data}")
+            raise HTTPException(
+                status_code=422,
+                detail=f"Failed to parse scorecard data. The AI may have included extra columns (Out/In/Total) in the scores. Please try again or fill in scores manually. Error: {str(validation_error)}"
+            )
         logger.info(f"Converted {len(players)} players")
         
         # Calculate totals and winner

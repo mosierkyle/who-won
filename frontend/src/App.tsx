@@ -84,7 +84,6 @@ function AppContent() {
   return (
     <Container size="xl" py="xl">
       <Stack gap="lg">
-        {/* CHANGED: Header with dark mode toggle */}
         <Group justify="space-between">
           <Title order={1}>Golf Scorecard Analyzer</Title>
           <ActionIcon
@@ -105,7 +104,6 @@ function AppContent() {
 
         {scorecardData ? (
           <>
-            {/* CHANGED: Game mode selector */}
             <Group>
               <Select
                 label="Game Mode"

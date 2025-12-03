@@ -182,7 +182,6 @@ def detect_table(img: np.ndarray, debug: bool = False) -> Optional[TableGrid]:
     height, width = img.shape[:2]
     logger.info(f"Image dimensions: {width}x{height}")
     
-    # UPDATED: Even smaller kernel sizes for better detection
     # Scorecards often have thinner lines than documents
     h_kernel_length = max(width // 15, 40)
     v_kernel_length = max(height // 15, 40)
@@ -200,7 +199,6 @@ def detect_table(img: np.ndarray, debug: bool = False) -> Optional[TableGrid]:
     logger.info(f"Vertical lines detected: {v_line_count} pixels")
     
     # Find positions of lines
-    # UPDATED: Much more lenient minimum lengths
     min_h_length = width // 8 
     min_v_length = height // 8
     
