@@ -120,7 +120,7 @@ class ClaudeService:
             
             # CHANGED: Use Sonnet 3.5 for better OCR accuracy (~$0.015 per scorecard)
             message = self.client.messages.create(
-                model="claude-3-5-sonnet-20241022",  # Better accuracy than Haiku
+                model="claude-3-5-sonnet-20240620",  # Correct Sonnet 3.5 model ID
                 max_tokens=1500,
                 messages=[{
                     "role": "user",
