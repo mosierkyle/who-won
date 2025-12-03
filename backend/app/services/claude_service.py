@@ -51,6 +51,7 @@ class ClaudeService:
         # Open image
         img = Image.open(io.BytesIO(image_bytes))
         
+        # CHANGED: Fix rotation based on EXIF orientation
         img = ImageOps.exif_transpose(img)
         
         # Convert RGBA to RGB if needed
@@ -117,7 +118,7 @@ class ClaudeService:
             logger.info(f"Sending image to Claude API (Haiku, type: {media_type})...")
             
             message = self.client.messages.create(
-                model="claude-3-5-haiku-20241022",  # Correct Haiku 3.5 model ID
+                model="claude-3-5-haiku-20241022", 
                 max_tokens=1500,
                 messages=[{
                     "role": "user",
@@ -142,18 +143,43 @@ Return ONLY valid JSON with this exact structure:
   "players": [
     {
       "name": "Player Name",
-      "scores": [score_hole_1, ..., score_hole_18]
+      "scores": [score_hole_1, score_hole_2, ..., score_hole_18]
     }
   ]
 }
 
-RULES:
-- Extract ALL players and their scores for all 18 holes
-- If a score/par is empty or unreadable, use null
+CRITICAL RULES FOR SCORES ARRAY:
+- scores array must have EXACTLY 18 numbers (one per hole)
+- DO NOT include Out, In, or Total scores in the scores array
+- Only include individual hole scores (typically 2-10 per hole)
+- Ignore any circles, squares, or markings around numbers - just extract the number
+- If a hole score is empty, unreadable, or marked with "X", use null
 - If par row is not visible, use null for entire par array
+- Scores below 1 or above 15 are likely OCR errors - double check
+
+RULES FOR NAMES:
+- Clean player names (trim spaces, fix capitalization)
+- Remove any non-name characters (scores, dates, etc)
+- If name is unclear, use best guess
+
+RULES FOR PAR:
+- Par values are typically 3, 4, or 5
+- If par row is not visible, use null for entire par array
+- Par array must have exactly 18 values (or all null)
+
+OUTPUT FORMAT:
+- DO NOT include markdown, backticks, or explanations
+- Output MUST be valid JSON only
+- Ensure all arrays have correct length
 - Clean player names (remove extra spaces/characters)
 - DO NOT include markdown, backticks, or explanations
 - Output MUST be valid JSON only
+
+EXAMPLE OF CORRECT SCORES:
+"scores": [4, 5, 3, 4, 4, 3, 5, 4, 4, 4, 3, 5, 4, 4, 3, 5, 4, 4]
+
+EXAMPLE OF INCORRECT (includes totals):
+"scores": [4, 5, 3, 4, 4, 3, 5, 4, 4, 39, 4, 3, 5, 4, 4, 3, 5, 4, 4, 37, 76]
 """
                         }
                     ]
@@ -162,7 +188,6 @@ RULES:
             
             response_text = message.content[0].text.strip()
             
-            # Remove markdown code blocks if present
             if response_text.startswith('```'):
                 response_text = response_text.split('```')[1]
                 if response_text.startswith('json'):
