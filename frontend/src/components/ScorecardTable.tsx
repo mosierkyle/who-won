@@ -270,7 +270,7 @@ export function ScorecardTable({ players, par, onPlayerUpdate }: ScorecardTableP
       >
         <Table.Thead>
           {table.getHeaderGroups().map((headerGroup) => (
-            <Table.Tr key={headerGroup.id} style={{ backgroundColor: '#f8f9fa' }}>
+            <Table.Tr key={headerGroup.id}>
               {headerGroup.headers.map((header) => (
                 <Table.Th 
                   key={header.id}
@@ -307,7 +307,7 @@ export function ScorecardTable({ players, par, onPlayerUpdate }: ScorecardTableP
         {/* Par row at bottom */}
         {par && (
           <Table.Tfoot>
-            <Table.Tr style={{ backgroundColor: '#e9ecef', fontWeight: 700 }}>
+            <Table.Tr style={{ fontWeight: 700 }}>
               <Table.Td style={{ padding: '8px' }}>Par</Table.Td>
               {/* Front 9 */}
               {par.slice(0, 9).map((p, i) => (

@@ -51,7 +51,6 @@ class ClaudeService:
         # Open image
         img = Image.open(io.BytesIO(image_bytes))
         
-        # CHANGED: Fix rotation based on EXIF orientation
         img = ImageOps.exif_transpose(img)
         
         # Convert RGBA to RGB if needed
@@ -149,7 +148,7 @@ Return ONLY valid JSON with this exact structure:
 }
 
 CRITICAL RULES FOR SCORES ARRAY:
-- scores array must have EXACTLY 18 numbers (one per hole)
+- scores array must have EXACTLY 18 or 9 numbers (one per hole)
 - DO NOT include Out, In, or Total scores in the scores array
 - Only include individual hole scores (typically 2-10 per hole)
 - Ignore any circles, squares, or markings around numbers - just extract the number
