@@ -62,7 +62,7 @@ export function ScorecardTable({ players, par, onPlayerUpdate }: ScorecardTableP
           const score = player.scores[i];
           const holePar = par?.[i] ?? null;
           const hasData = score !== null;
-          const scoring = getScoringType(score, holePar);
+          const scoring = getScoringType(score, holePar); 
           
           const cell = (
             <Box pos="relative" >
