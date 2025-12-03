@@ -9,13 +9,6 @@ export interface paths {
     /**
      * Upload And Process Scorecard
      * @description Upload scorecard image and process it with Claude API
-     *
-     * Flow:
-     * 1. Receive image from frontend
-     * 2. Upload to S3
-     * 3. Send to Claude for data extraction
-     * 4. Calculate totals and winner
-     * 5. Return structured data
      */
     post: operations["upload_and_process_scorecard_api_upload_and_process_post"];
   };
@@ -70,7 +63,7 @@ export interface components {
     };
     /**
      * Player
-     * @description Player data with scores
+     * @description Player data with scores (9 or 18 holes)
      */
     Player: {
       /** Name */
@@ -99,7 +92,7 @@ export interface components {
     };
     /**
      * ScorecardData
-     * @description Complete scorecard data
+     * @description Complete scorecard data (9 or 18 holes)
      */
     ScorecardData: {
       /** Course */
@@ -137,13 +130,6 @@ export interface operations {
   /**
    * Upload And Process Scorecard
    * @description Upload scorecard image and process it with Claude API
-   *
-   * Flow:
-   * 1. Receive image from frontend
-   * 2. Upload to S3
-   * 3. Send to Claude for data extraction
-   * 4. Calculate totals and winner
-   * 5. Return structured data
    */
   upload_and_process_scorecard_api_upload_and_process_post: {
     requestBody: {

@@ -7,6 +7,7 @@ logger = logging.getLogger(__name__)
 def calculate_totals(player: Player) -> Player:
     """
     Calculate total, front 9, and back 9 scores for a player
+    Supports both 9-hole and 18-hole rounds
     
     Args:
         player: Player with scores
@@ -15,20 +16,28 @@ def calculate_totals(player: Player) -> Player:
         Player with calculated totals
     """
     scores = player.scores
+    num_holes = len(scores)
     
     # Calculate total (ignoring None values)
     valid_scores = [s for s in scores if s is not None]
     player.total = sum(valid_scores) if valid_scores else None
     
-    # Calculate front 9 (holes 0-8 in 0-indexed array)
-    front_nine = scores[:9]
-    valid_front = [s for s in front_nine if s is not None]
-    player.front_nine_total = sum(valid_front) if valid_front else None
-    
-    # Calculate back 9 (holes 9-17 in 0-indexed array)
-    back_nine = scores[9:18]
-    valid_back = [s for s in back_nine if s is not None]
-    player.back_nine_total = sum(valid_back) if valid_back else None
+    # CHANGED: Handle 9-hole vs 18-hole rounds
+    if num_holes == 9:
+        # 9-hole round: all scores are "front nine"
+        player.front_nine_total = player.total
+        player.back_nine_total = None
+    else:
+        # 18-hole round
+        # Calculate front 9 (holes 0-8 in 0-indexed array)
+        front_nine = scores[:9]
+        valid_front = [s for s in front_nine if s is not None]
+        player.front_nine_total = sum(valid_front) if valid_front else None
+        
+        # Calculate back 9 (holes 9-17 in 0-indexed array)
+        back_nine = scores[9:18]
+        valid_back = [s for s in back_nine if s is not None]
+        player.back_nine_total = sum(valid_back) if valid_back else None
     
     return player
 

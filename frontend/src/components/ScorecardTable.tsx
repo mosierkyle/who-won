@@ -32,6 +32,10 @@ const getScoringType = (score: number | null, par: number | null) => {
 };
 
 export function ScorecardTable({ players, par, onPlayerUpdate }: ScorecardTableProps) {
+  // CHANGED: Detect if 9-hole or 18-hole round
+  const numHoles = players[0]?.scores.length || 18;
+  const isNineHole = numHoles === 9;
+  
   const columns = useMemo(() => {
     const baseColumns = [
       columnHelper.accessor('name', {
@@ -51,8 +55,8 @@ export function ScorecardTable({ players, par, onPlayerUpdate }: ScorecardTableP
       }),
     ];
 
-    // Holes 1-9
-    const frontNineColumns = Array.from({ length: 9 }, (_, i) =>
+    // CHANGED: Generate holes dynamically (9 or 18)
+    const frontNineColumns = Array.from({ length: isNineHole ? 9 : 9 }, (_, i) =>
       columnHelper.display({
         id: `hole-${i + 1}`,
         header: () => <div style={{ textAlign: 'center', fontWeight: 700 }}>{i + 1}</div>,
@@ -65,28 +69,19 @@ export function ScorecardTable({ players, par, onPlayerUpdate }: ScorecardTableP
           const scoring = getScoringType(score, holePar);
           
           const cell = (
-            <Box pos="relative" >
-                {scoring?.type === 'birdie' && (
-                    <Box
-                    style={{
-                        marginTop: "-7px",
-                        zIndex: "10",
-                        position: 'absolute',
-                        inset: 0,
-                        borderRadius: '50%',
-                        border: `1px solid ${scoring.color}`,
-                        pointerEvents: 'none',
-                        height: "45px",
-                        borderColor: "green"
-                    }}
-                    />
-                )}
+            <Box pos="relative">
               <TextInput
                 value={score ?? ''}
                 onChange={(e) => {
                   const newScores = [...player.scores];
                   newScores[i] = e.target.value === '' ? null : parseInt(e.target.value);
                   onPlayerUpdate(info.row.index, { ...player, scores: newScores });
+                }}
+                onKeyDown={(e) => {
+                  // CHANGED: Keep focus when clearing with backspace
+                  if (e.key === 'Backspace' || e.key === 'Delete') {
+                    e.currentTarget.select();
+                  }
                 }}
                 size="xs"
                 type="number"
@@ -98,10 +93,11 @@ export function ScorecardTable({ players, par, onPlayerUpdate }: ScorecardTableP
                     border: hasData ? '1px solid #dee2e6' : '2px solid #ffd43b',
                     backgroundColor: hasData ? 'transparent' : '#fff9db',
                     fontWeight: 600,
-                    borderRadius: '4px',
-                    borderColor: (hasData ? '#dee2e6' : '#ffd43b'),
-                    borderWidth: (hasData ? '1px' : '2px'),
-                    color: 'inherit',
+                    // CHANGED: Circle the number itself for birdies/eagles
+                    borderRadius: scoring?.type === 'birdie' ? '50%' : '4px',
+                    borderColor: scoring?.type === 'birdie' ? scoring.color : (hasData ? '#dee2e6' : '#ffd43b'),
+                    borderWidth: scoring?.type === 'birdie' ? '2px' : (hasData ? '1px' : '2px'),
+                    color: scoring?.type === 'birdie' ? scoring.color : 'inherit',
                   }
                 }}
                 placeholder="-"
@@ -130,6 +126,7 @@ export function ScorecardTable({ players, par, onPlayerUpdate }: ScorecardTableP
       })
     );
 
+    // CHANGED: Out total after hole 9
     const outColumn = columnHelper.accessor('front_nine_total', {
       header: 'Out',
       size: 50,
@@ -140,8 +137,8 @@ export function ScorecardTable({ players, par, onPlayerUpdate }: ScorecardTableP
       ),
     });
 
-    // Holes 10-18
-    const backNineColumns = Array.from({ length: 9 }, (_, i) =>
+    // CHANGED: Only add back nine for 18-hole rounds
+    const backNineColumns = !isNineHole ? Array.from({ length: 9 }, (_, i) =>
       columnHelper.display({
         id: `hole-${i + 10}`,
         header: () => <div style={{ textAlign: 'center', fontWeight: 700 }}>{i + 10}</div>,
@@ -155,28 +152,19 @@ export function ScorecardTable({ players, par, onPlayerUpdate }: ScorecardTableP
           const scoring = getScoringType(score, holePar);
           
           const cell = (
-            <Box pos="relative" >
-                {scoring?.type === 'birdie' && (
-                    <Box
-                    style={{
-                        marginTop: "-7px",
-                        zIndex: "10",
-                        position: 'absolute',
-                        inset: 0,
-                        borderRadius: '50%',
-                        border: `1px solid ${scoring.color}`,
-                        pointerEvents: 'none',
-                        height: "45px",
-                        borderColor: "green"
-                    }}
-                    />
-                )}
+            <Box pos="relative">
               <TextInput
                 value={score ?? ''}
                 onChange={(e) => {
                   const newScores = [...player.scores];
                   newScores[holeIndex] = e.target.value === '' ? null : parseInt(e.target.value);
                   onPlayerUpdate(info.row.index, { ...player, scores: newScores });
+                }}
+                onKeyDown={(e) => {
+                  // CHANGED: Keep focus when clearing with backspace
+                  if (e.key === 'Backspace' || e.key === 'Delete') {
+                    e.currentTarget.select();
+                  }
                 }}
                 size="xs"
                 type="number"
@@ -188,10 +176,10 @@ export function ScorecardTable({ players, par, onPlayerUpdate }: ScorecardTableP
                     border: hasData ? '1px solid #dee2e6' : '2px solid #ffd43b',
                     backgroundColor: hasData ? 'transparent' : '#fff9db',
                     fontWeight: 600,
-                    borderRadius: '4px',
-                    borderColor: (hasData ? '#dee2e6' : '#ffd43b'),
-                    borderWidth: (hasData ? '1px' : '2px'),
-                    color: 'inherit',
+                    borderRadius: scoring?.type === 'birdie' ? '50%' : '4px',
+                    borderColor: scoring?.type === 'birdie' ? scoring.color : (hasData ? '#dee2e6' : '#ffd43b'),
+                    borderWidth: scoring?.type === 'birdie' ? '2px' : (hasData ? '1px' : '2px'),
+                    color: scoring?.type === 'birdie' ? scoring.color : 'inherit',
                   }
                 }}
                 placeholder="-"
@@ -218,8 +206,9 @@ export function ScorecardTable({ players, par, onPlayerUpdate }: ScorecardTableP
           return cell;
         },
       })
-    );
+    ) : [];  // CHANGED: Empty array for 9-hole rounds
 
+    // CHANGED: In total after hole 18
     const inColumn = columnHelper.accessor('back_nine_total', {
       header: 'In',
       size: 50,
@@ -248,8 +237,10 @@ export function ScorecardTable({ players, par, onPlayerUpdate }: ScorecardTableP
       ),
     });
 
-    return [...baseColumns, ...frontNineColumns, outColumn, ...backNineColumns, inColumn, totalColumn];
-  }, [onPlayerUpdate, par]);
+    return isNineHole
+      ? [...baseColumns, ...frontNineColumns, outColumn, totalColumn]
+      : [...baseColumns, ...frontNineColumns, outColumn, ...backNineColumns, inColumn, totalColumn];
+  }, [onPlayerUpdate, par, numHoles, isNineHole]);
 
   const table = useReactTable({
     data: players,
@@ -307,27 +298,31 @@ export function ScorecardTable({ players, par, onPlayerUpdate }: ScorecardTableP
         {/* Par row at bottom */}
         {par && (
           <Table.Tfoot>
-            <Table.Tr style={{ fontWeight: 700 }}>
-              <Table.Td style={{ padding: '8px' }}>Par</Table.Td>
-              {/* Front 9 */}
-              {par.slice(0, 9).map((p, i) => (
-                <Table.Td key={i} style={{ padding: '4px', textAlign: 'center' }}>
+            <Table.Tr>
+              <Table.Td style={{ padding: '8px', fontWeight: 700 }}>Par</Table.Td>
+              {/* Front 9 (or all 9 for 9-hole) */}
+              {par.slice(0, numHoles).map((p, i) => (
+                <Table.Td key={i} style={{ padding: '4px', textAlign: 'center', fontWeight: 600 }}>
                   {p ?? '-'}
                 </Table.Td>
               ))}
-              <Table.Td style={{ textAlign: 'center' }}>
-                {par.slice(0, 9).filter(p => p !== null).reduce((sum, p) => sum + (p || 0), 0)}
+              <Table.Td style={{ textAlign: 'center', fontWeight: 700 }}>
+                {par.slice(0, Math.min(9, numHoles)).filter(p => p !== null).reduce((sum, p) => sum + (p || 0), 0)}
               </Table.Td>
-              {/* Back 9 */}
-              {par.slice(9, 18).map((p, i) => (
-                <Table.Td key={i + 9} style={{ padding: '4px', textAlign: 'center' }}>
-                  {p ?? '-'}
-                </Table.Td>
-              ))}
-              <Table.Td style={{ textAlign: 'center' }}>
-                {par.slice(9, 18).filter(p => p !== null).reduce((sum, p) => sum + (p || 0), 0)}
-              </Table.Td>
-              <Table.Td style={{ textAlign: 'center' }}>
+              {/* Back 9 - only for 18-hole rounds */}
+              {!isNineHole && (
+                <>
+                  {par.slice(9, 18).map((p, i) => (
+                    <Table.Td key={i + 9} style={{ padding: '4px', textAlign: 'center', fontWeight: 600 }}>
+                      {p ?? '-'}
+                    </Table.Td>
+                  ))}
+                  <Table.Td style={{ textAlign: 'center', fontWeight: 700 }}>
+                    {par.slice(9, 18).filter(p => p !== null).reduce((sum, p) => sum + (p || 0), 0)}
+                  </Table.Td>
+                </>
+              )}
+              <Table.Td style={{ textAlign: 'center', fontWeight: 700 }}>
                 {par.filter(p => p !== null).reduce((sum, p) => sum + (p || 0), 0)}
               </Table.Td>
             </Table.Tr>
