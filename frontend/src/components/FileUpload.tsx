@@ -12,7 +12,7 @@ export function FileUpload({ onFileSelect, loading }: FileUploadProps) {
     <Dropzone
       onDrop={(files) => onFileSelect(files[0])}
       onReject={(files) => console.log('rejected files', files)}
-      maxSize={5 * 1024 ** 2}  // 5MB max
+      maxSize={50 * 1024 ** 2}
       accept={IMAGE_MIME_TYPE}
       loading={loading}
       multiple={false}
