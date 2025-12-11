@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react'; // CHANGE: Added useRef
-import { MantineProvider, Container, Title, Stack, LoadingOverlay, Alert, Button, Group, Select, ActionIcon, useMantineColorScheme } from '@mantine/core';
+import { MantineProvider, Container, Title, Stack, Alert, Button, Group, Select, ActionIcon, useMantineColorScheme } from '@mantine/core';
 import '@mantine/core/styles.css';
 import '@mantine/dropzone/styles.css';
 import { IconInfoCircle, IconMoon, IconSun } from '@tabler/icons-react';
