@@ -2,6 +2,11 @@
 
 Upload Scorecard, find out who won!
 
+<div align="center">
+  <img src="Screenshots/lightMode.png" alt="App" width="45%" />
+  <img src="Screenshots/DarkMode.png" alt="App Dark mode" width="45%" />
+</div>
+
 ### Backend
 - FastAPI
 - Python 3.9+
