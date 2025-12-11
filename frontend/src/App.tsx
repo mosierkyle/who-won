@@ -52,7 +52,6 @@ function AppContent() {
   };
 
   const handlePlayerUpdate = useCallback((playerIndex: number, updatedPlayer: Player) => {
-  // Update immediately
   setScorecardData(prev => {
     if (!prev) return prev;
     const updatedPlayers = [...prev.players];
@@ -60,7 +59,6 @@ function AppContent() {
     return { ...prev, players: updatedPlayers };
   });
 
-  // Debounce the heavy calculations
   if (recalcTimerRef.current) {
     clearTimeout(recalcTimerRef.current);
   }
@@ -69,7 +67,6 @@ function AppContent() {
     setScorecardData(prev => {
       if (!prev) return prev;
 
-      // Recalculate totals for the updated player
       const player = prev.players[playerIndex];
       const validScores = player.scores.filter(s => s !== null) as number[];
       const total = validScores.length > 0 ? validScores.reduce((a, b) => a + b, 0) : undefined;
@@ -83,7 +80,6 @@ function AppContent() {
       const updatedPlayers = [...prev.players];
       updatedPlayers[playerIndex] = { ...player, total, front_nine_total, back_nine_total };
 
-      // Recalculate winner
       let newWinner: string | null = null;
       const playersWithTotals = updatedPlayers.filter(p => p.total !== undefined);
       
@@ -164,7 +160,6 @@ function AppContent() {
         ) : (
           <>
             <FileUpload onFileSelect={handleFileSelect} loading={loading} />
-            <LoadingOverlay visible={loading} />
           </>
         )}
       </Stack>
