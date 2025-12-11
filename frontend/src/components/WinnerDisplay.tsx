@@ -1,13 +1,15 @@
-import { Card, Text, Badge, Group } from '@mantine/core';
+import { Card, Text, Badge, Group, TextInput } from '@mantine/core'; // CHANGE: Added TextInput
 import { IconTrophy } from '@tabler/icons-react';
 
 interface WinnerDisplayProps {
   winner?: string | null;
   course?: string | null;
   date?: string | null;
+  onCourseChange?: (course: string) => void;
+  onDateChange?: (date: string) => void;
 }
 
-export function WinnerDisplay({ winner, course, date }: WinnerDisplayProps) {
+export function WinnerDisplay({ winner, course, date, onCourseChange, onDateChange }: WinnerDisplayProps) {
   if (!winner) {
     return null;
   }
@@ -27,17 +29,36 @@ export function WinnerDisplay({ winner, course, date }: WinnerDisplayProps) {
           </div>
         </Group>
         
+        {/* CHANGE: Made course and date editable */}
         <div style={{ textAlign: 'right' }}>
-          {course && (
+          {onCourseChange ? (
+            <TextInput
+              value={course || ''}
+              onChange={(e) => onCourseChange(e.target.value)}
+              placeholder="Course name"
+              size="sm"
+              styles={{ input: { textAlign: 'right' } }}
+            />
+          ) : course ? (
             <Text size="sm" c="dimmed">
               {course}
             </Text>
-          )}
-          {date && (
+          ) : null}
+          
+          {onDateChange ? (
+            <TextInput
+              value={date || ''}
+              onChange={(e) => onDateChange(e.target.value)}
+              placeholder="Date"
+              size="xs"
+              styles={{ input: { textAlign: 'right' } }}
+              mt={4}
+            />
+          ) : date ? (
             <Text size="xs" c="dimmed">
               {date}
             </Text>
-          )}
+          ) : null}
         </div>
       </Group>
       

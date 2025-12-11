@@ -116,6 +116,15 @@ const handlePlayerAdd = useCallback(() => {
   });
 }, []);
 
+const handleCourseChange = useCallback((course: string) => {
+  setScorecardData(prev => prev ? { ...prev, course } : prev);
+}, []);
+
+const handleDateChange = useCallback((date: string) => {
+  setScorecardData(prev => prev ? { ...prev, date } : prev);
+}, []);
+
+
   return (
     <Container size="xl" py="xl">
       <Stack gap="lg">
@@ -158,6 +167,8 @@ const handlePlayerAdd = useCallback(() => {
               winner={winner} 
               course={scorecardData.course} 
               date={scorecardData.date} 
+              onCourseChange={handleCourseChange}
+              onDateChange={handleDateChange}
             />
 
             <ScorecardTable
