@@ -2,10 +2,8 @@
 
 Upload Scorecard, find out who won!
 
-<div align="center">
-  <img src="Screenshots/lightMode.png" alt="App" width="45%" />
-  <img src="Screenshots/DarkMode.png" alt="App Dark mode" width="45%" />
-</div>
+<img src="Screenshots/LightMode.png" alt="App" width="49%" />
+<img src="Screenshots/DarkMode.png" alt="App Dark mode" width="49%" />
 
 ### Backend
 - FastAPI
