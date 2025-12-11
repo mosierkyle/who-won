@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback, useRef } from 'react'; // CHANGE: Added useRef
 import { MantineProvider, Container, Title, Stack, LoadingOverlay, Alert, Button, Group, Select, ActionIcon, useMantineColorScheme } from '@mantine/core';
 import '@mantine/core/styles.css';
 import '@mantine/dropzone/styles.css';
@@ -18,6 +18,7 @@ function AppContent() {
   const [error, setError] = useState<string | null>(null);
   const [gameMode, setGameMode] = useState<GameMode>('stroke_play');
   const { colorScheme, toggleColorScheme } = useMantineColorScheme();
+  const recalcTimerRef = useRef<number | null>(null); // CHANGE: Added ref for debounce
 
   const handleFileSelect = async (file: File) => {
     try {
@@ -50,36 +51,51 @@ function AppContent() {
     }
   };
 
-  const handlePlayerUpdate = (playerIndex: number, updatedPlayer: Player) => {
-    if (!scorecardData) return;
-
-    // Fix total calculation
-    const validScores = updatedPlayer.scores.filter(s => s !== null) as number[];
-    updatedPlayer.total = validScores.length > 0 ? validScores.reduce((a, b) => a + b, 0) : undefined;
-    
-    const frontNine = updatedPlayer.scores.slice(0, 9).filter(s => s !== null) as number[];
-    updatedPlayer.front_nine_total = frontNine.length > 0 ? frontNine.reduce((a, b) => a + b, 0) : undefined;
-    
-    const backNine = updatedPlayer.scores.slice(9, 18).filter(s => s !== null) as number[];
-    updatedPlayer.back_nine_total = backNine.length > 0 ? backNine.reduce((a, b) => a + b, 0) : undefined;
-
-    const updatedPlayers = [...scorecardData.players];
+  const handlePlayerUpdate = useCallback((playerIndex: number, updatedPlayer: Player) => {
+  // Update immediately
+  setScorecardData(prev => {
+    if (!prev) return prev;
+    const updatedPlayers = [...prev.players];
     updatedPlayers[playerIndex] = updatedPlayer;
+    return { ...prev, players: updatedPlayers };
+  });
 
-    // Recalculate winner based on game mode
-    let newWinner: string | null = null;
-    const playersWithTotals = updatedPlayers.filter(p => p.total !== undefined);
-    
-    if (playersWithTotals.length > 0) {
-      if (gameMode === 'stroke_play') {
+  // Debounce the heavy calculations
+  if (recalcTimerRef.current) {
+    clearTimeout(recalcTimerRef.current);
+  }
+
+  recalcTimerRef.current = window.setTimeout(() => {
+    setScorecardData(prev => {
+      if (!prev) return prev;
+
+      // Recalculate totals for the updated player
+      const player = prev.players[playerIndex];
+      const validScores = player.scores.filter(s => s !== null) as number[];
+      const total = validScores.length > 0 ? validScores.reduce((a, b) => a + b, 0) : undefined;
+      
+      const frontNine = player.scores.slice(0, 9).filter(s => s !== null) as number[];
+      const front_nine_total = frontNine.length > 0 ? frontNine.reduce((a, b) => a + b, 0) : undefined;
+      
+      const backNine = player.scores.slice(9, 18).filter(s => s !== null) as number[];
+      const back_nine_total = backNine.length > 0 ? backNine.reduce((a, b) => a + b, 0) : undefined;
+
+      const updatedPlayers = [...prev.players];
+      updatedPlayers[playerIndex] = { ...player, total, front_nine_total, back_nine_total };
+
+      // Recalculate winner
+      let newWinner: string | null = null;
+      const playersWithTotals = updatedPlayers.filter(p => p.total !== undefined);
+      
+      if (playersWithTotals.length > 0 && gameMode === 'stroke_play') {
         newWinner = playersWithTotals.reduce((prev, curr) => (curr.total! < prev.total! ? curr : prev)).name;
       }
-      // TODO: Add other game modes
-    }
 
-    setScorecardData({ ...scorecardData, players: updatedPlayers });
-    setWinner(newWinner);
-  };
+      setWinner(newWinner);
+      return { ...prev, players: updatedPlayers };
+    });
+  }, 300);
+}, [gameMode]);
 
   return (
     <Container size="xl" py="xl">
