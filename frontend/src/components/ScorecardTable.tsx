@@ -1,10 +1,14 @@
-import { Table, TextInput, Box, Tooltip } from '@mantine/core';
+import { Table, TextInput, Box, Tooltip, Group, Button, ActionIcon } from '@mantine/core';
 import type { Player } from '../types';
+import { IconTrash, IconUserPlus } from '@tabler/icons-react';
+
 
 interface ScorecardTableProps {
   players: Player[];
   par?: (number | null)[];
   onPlayerUpdate: (playerIndex: number, updatedPlayer: Player) => void;
+  onPlayerDelete?: (playerIndex: number) => void;
+  onPlayerAdd?: () => void; 
 }
 
 // Helper to determine scoring type
@@ -97,7 +101,13 @@ const ScoreCell = ({
   return cell;
 };
 
-export function ScorecardTable({ players, par = [], onPlayerUpdate }: ScorecardTableProps) {
+export function ScorecardTable({ 
+  players, 
+  par = [], 
+  onPlayerUpdate,
+  onPlayerDelete,
+  onPlayerAdd 
+}: ScorecardTableProps) {
   const handleScoreChange = (playerIndex: number, holeIndex: number, newScore: number | null) => {
     const player = players[playerIndex];
     const newScores = [...player.scores];
@@ -112,6 +122,19 @@ export function ScorecardTable({ players, par = [], onPlayerUpdate }: ScorecardT
 
   return (
     <Box style={{ overflowX: 'auto' }}>
+        {onPlayerAdd && (
+        <Group mb="md">
+          <Button 
+            leftSection={<IconUserPlus size={16} />}
+            onClick={onPlayerAdd}
+            variant="light"
+            size="sm"
+          >
+            Add Player
+          </Button>
+        </Group>
+      )}
+
       <Table 
         striped 
         highlightOnHover 
@@ -139,6 +162,8 @@ export function ScorecardTable({ players, par = [], onPlayerUpdate }: ScorecardT
             ))}
             <Table.Th style={{ padding: '8px 4px', textAlign: 'center', fontWeight: 700 }}>In</Table.Th>
             <Table.Th style={{ padding: '8px 4px', textAlign: 'center', fontWeight: 700 }}>Total</Table.Th>
+            {onPlayerDelete && <Table.Th style={{ padding: '8px 4px', textAlign: 'center' }}></Table.Th>}
+
           </Table.Tr>
         </Table.Thead>
         
@@ -207,6 +232,18 @@ export function ScorecardTable({ players, par = [], onPlayerUpdate }: ScorecardT
                   {player.total ?? '-'}
                 </div>
               </Table.Td>
+              {onPlayerDelete && (
+                  <Table.Td style={{ padding: '4px', textAlign: 'center' }}>
+                    <ActionIcon
+                      color="red"
+                      variant="subtle"
+                      onClick={() => onPlayerDelete(playerIndex)}
+                      disabled={players.length === 1}
+                    >
+                      <IconTrash size={16} />
+                    </ActionIcon>
+                  </Table.Td>
+                )}
             </Table.Tr>
           ))}
         </Table.Tbody>
@@ -237,6 +274,7 @@ export function ScorecardTable({ players, par = [], onPlayerUpdate }: ScorecardT
               <Table.Td style={{ textAlign: 'center' }}>
                 {par.filter(p => p !== null).reduce((sum, p) => sum + (p || 0), 0)}
               </Table.Td>
+              {onPlayerDelete && <Table.Td></Table.Td>}
             </Table.Tr>
           </Table.Tfoot>
         )}

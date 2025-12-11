@@ -93,6 +93,29 @@ function AppContent() {
   }, 300);
 }, [gameMode]);
 
+
+const handlePlayerDelete = useCallback((playerIndex: number) => {
+  setScorecardData(prev => {
+    if (!prev || prev.players.length === 1) return prev;
+    const updatedPlayers = prev.players.filter((_, idx) => idx !== playerIndex);
+    return { ...prev, players: updatedPlayers };
+  });
+}, []);
+
+const handlePlayerAdd = useCallback(() => {
+  setScorecardData(prev => {
+    if (!prev) return prev;
+    const newPlayer: Player = {
+      name: `Player ${prev.players.length + 1}`,
+      scores: Array(18).fill(null),
+      total: undefined,
+      front_nine_total: undefined,
+      back_nine_total: undefined,
+    };
+    return { ...prev, players: [...prev.players, newPlayer] };
+  });
+}, []);
+
   return (
     <Container size="xl" py="xl">
       <Stack gap="lg">
@@ -141,6 +164,8 @@ function AppContent() {
               players={scorecardData.players}
               par={scorecardData.par || []}
               onPlayerUpdate={handlePlayerUpdate}
+              onPlayerDelete={handlePlayerDelete}
+              onPlayerAdd={handlePlayerAdd}
             />
 
             <ExportButton data={scorecardData} />
